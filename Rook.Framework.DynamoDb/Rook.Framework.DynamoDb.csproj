@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>netcoreapp2.2</TargetFramework>
+        <Title>Rook.Framework.DynamoDb</Title>
+        <Authors>Rook contributors</Authors>
+        <PackageProjectUrl>https://github.com/rookframework/Rook.Documentation</PackageProjectUrl>
+        <PackageIconUrl>https://github.com/rookframework/Rook.Documentation/blob/master/rook.png?raw=true</PackageIconUrl>
+        <RepositoryUrl>https://github.com/rookframework/Rook.Framework.DynamoDb</RepositoryUrl>
+        <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="AWSSDK.DynamoDBv2" Version="3.3.101.70" />
+      <PackageReference Include="Rook.Framework.Core" Version="2019.4.5.12" />
+    </ItemGroup>
+
+</Project>

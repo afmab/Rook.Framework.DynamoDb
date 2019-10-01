@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ContentModelStore">
+    <e p="$USER_HOME$/.Rider2019.2/system/extResources" t="IncludeRecursive" />
+    <e p="$USER_HOME$/.Rider2019.2/system/resharper-host/local/Transient/ReSharperHost/v192/SolutionCaches/_Rook.Framework.DynamoDb.694512766.00" t="ExcludeRecursive" />
+    <e p="$PROJECT_DIR$" t="IncludeFlat">
+      <e p="Rook.Framework.DynamoDb" t="IncludeRecursive">
+        <e p="Data" t="Include">
+          <e p="DataEntityBase.cs" t="Include" />
+          <e p="DynamoClient.cs" t="Include" />
+          <e p="DynamoStore.cs" t="Include" />
+          <e p="IDynamoClient.cs" t="Include" />
+          <e p="IDynamoStore.cs" t="Include" />
+        </e>
+        <e p="Health" t="Include">
+          <e p="DynamoDbHealthCheck.cs" t="Include" />
+        </e>
+        <e p="Rook.Framework.DynamoDb.csproj" t="IncludeRecursive" />
+        <e p="StructureMap" t="Include">
+          <e p="DynamoRegistry.cs" t="Include" />
+        </e>
+        <e p="Utilities" t="Include">
+          <e p="DynamoTypeMapper.cs" t="Include" />
+        </e>
+        <e p="bin" t="ExcludeRecursive" />
+        <e p="obj" t="ExcludeRecursive">
+          <e p="Debug" t="Include">
+            <e p="netcoreapp2.2" t="Include">
+              <e p="Rook.Framework.DynamoDb.AssemblyInfo.cs" t="Include" />
+            </e>
+          </e>
+        </e>
+      </e>
+      <e p="Rook.Framework.DynamoDb.sln" t="IncludeFlat" />
+      <e p="packages" t="ExcludeRecursive" />
+    </e>
+  </component>
+</project>
