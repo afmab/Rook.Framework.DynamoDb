@@ -2,6 +2,11 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rook.Framework.DynamoDb", "Rook.Framework.DynamoDb\Rook.Framework.DynamoDb.csproj", "{B9798814-428C-4088-B46C-E1C8A3444AA3}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "SolutionItems", "SolutionItems", "{9600CACE-4519-4401-8106-212F5B28873E}"
+ProjectSection(SolutionItems) = preProject
+	.travis.yml = .travis.yml
+EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU

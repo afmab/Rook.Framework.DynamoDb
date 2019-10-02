@@ -15,6 +15,9 @@
         <e p="Health" t="Include">
           <e p="DynamoDbHealthCheck.cs" t="Include" />
         </e>
+        <e p="Helpers" t="Include">
+          <e p="OperationType.cs" t="Include" />
+        </e>
         <e p="Rook.Framework.DynamoDb.csproj" t="IncludeRecursive" />
         <e p="StructureMap" t="Include">
           <e p="DynamoRegistry.cs" t="Include" />
@@ -32,6 +35,7 @@
         </e>
       </e>
       <e p="Rook.Framework.DynamoDb.sln" t="IncludeFlat" />
+      <e p="SolutionItems" t="Include" />
       <e p="packages" t="ExcludeRecursive" />
     </e>
   </component>

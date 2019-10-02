@@ -1,11 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.DataModel;
 using Amazon.DynamoDBv2.DocumentModel;
 using Amazon.DynamoDBv2.Model;
+using MongoDB.Bson;
 using Newtonsoft.Json;
+using Rook.Framework.Core.AmazonKinesisFirehose;
 using Rook.Framework.Core.Common;
 using Rook.Framework.Core.Services;
 using Rook.Framework.Core.StructureMap;
@@ -19,20 +22,26 @@ namespace Rook.Framework.DynamoDb.Data
         private readonly IDynamoClient _client;
         private readonly IContainerFacade _containerFacade;
         internal readonly ILogger Logger;
+        private readonly IAmazonFirehoseProducer _amazonFirehoseProducer; 
+        private readonly string _amazonKinesisStreamName;
         internal static Dictionary<Type, object> TableCache { get; } = new Dictionary<Type, object>();
         public StartupPriority StartupPriority { get; } = StartupPriority.Highest;
         
 
         public DynamoStore(
             ILogger logger,
+            IConfigurationManager configurationManager,
             IDynamoClient client,
-            IContainerFacade containerFacade
+            IContainerFacade containerFacade,
+            IAmazonFirehoseProducer amazonFirehoseProducer
          )
         {
             _client = client;
             _containerFacade = containerFacade;
             Logger = logger;
+            _amazonFirehoseProducer = amazonFirehoseProducer;
             _client.Create();
+            _amazonKinesisStreamName = configurationManager.Get<string>("RepositoryKinesisStream");
         }
         
         public void Start()
@@ -51,18 +60,16 @@ namespace Rook.Framework.DynamoDb.Data
             
             DynamoDBContext db = new DynamoDBContext(DynamoConnection);
             Document document = db.ToDocument(entityToStore);
+            
             table.PutItemAsync(document);
+            
+            _amazonFirehoseProducer.PutRecord(_amazonKinesisStreamName,
+                FormatEntity(entityToStore, Helpers.OperationType.Insert));
+            
             Logger.Trace($"{nameof(DynamoStore)}.{nameof(Put)}",
                 new LogItem("Event", "Insert entity"),
                 new LogItem("Type", typeof(T).ToString),
                 new LogItem("Entity", entityToStore.ToString));
-        }
-
-        public bool Ping()
-        {
-            //TODO: implement a proper check here 
-            Connect();
-            return true;
         }
 
         public void Remove<T>(object id) where T : DataEntity
@@ -92,7 +99,13 @@ namespace Rook.Framework.DynamoDb.Data
                 DynamoConnection = _client.GetDatabase();
                     
         }
-
+        
+        public bool Ping()
+        {
+            //TODO: implement a proper check here 
+            Connect();
+            return true;
+        }
 
         private void GetOrCreateTable<T>()
         {
@@ -175,6 +188,22 @@ namespace Rook.Framework.DynamoDb.Data
 
                 return (Table)TableCache[typeof(T)];
             }
+        }
+        
+        private static string FormatEntity<T>(T entity, Helpers.OperationType type)
+        {
+            var regex = new Regex("ISODate[(](.+?)[)]");
+
+            var result = new
+            {
+                Service = ServiceInfo.Name,
+                OperationType = Enum.GetName(typeof(OperationType), type),
+                Entity = JsonConvert.SerializeObject(entity),
+                EntityType = typeof(T).Name,
+                Date = DateTime.UtcNow
+            }.ToJson();
+
+            return regex.Replace(result, "$1");
         }
     }
 }

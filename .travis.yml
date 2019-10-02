@@ -1,0 +1,17 @@
+language: csharp
+mono: none
+dotnet: 2.2
+sudo: required
+dist: xenial
+script:
+  - YEAR=$(date +'%Y')
+  - MONTH=$(date +'%m')
+  - DAY=$(date +'%d')
+  - dotnet build -c Release /p:Version="${YEAR}"."${MONTH}"."${DAY}"."${TRAVIS_BUILD_NUMBER}"
+  - dotnet pack Rook.Framework.DynamoDb/Rook.Framework.DynamoDb.csproj -c Release /p:Version="${YEAR}"."${MONTH}"."${DAY}"."${TRAVIS_BUILD_NUMBER}"
+  - dotnet test Rook.Framework.DynamoDb.Tests.Unit/Rook.Framework.DynamoDb.Tests.Unit.csproj
+  - export NUGET_FILE=$(ls Rook.Framework.DynamoDb/bin/Release/*.nupkg)
+  - dotnet nuget push "${NUGET_FILE}" -k "${NUGET_KEY}" -s https://www.nuget.org/
+global:
+  - DOTNET_SKIP_FIRST_TIME_EXPERIENCE=true
+  - DOTNET_CLI_TELEMETRY_OPTOUT=1 
