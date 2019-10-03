@@ -13,13 +13,9 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="AWSSDK.Core" Version="3.3.103.45" />
-      <PackageReference Include="AWSSDK.DynamoDBv2" Version="3.3.101.70" />
-      <PackageReference Include="AWSSDK.Kinesis" Version="3.3.100.81" />
-      <PackageReference Include="AWSSDK.KinesisFirehose" Version="3.3.100.81" />
-      <PackageReference Include="KinesisProducerNet" Version="0.12.8" />
-      <PackageReference Include="KinesisProducerNet.Linux" Version="0.12.8" />
-      <PackageReference Include="KinesisProducerNet.Windows" Version="0.12.8" />
+      <PackageReference Include="Linq2DynamoDb.AspNet.DataSource" Version="2.4.0" />
+      <PackageReference Include="Linq2DynamoDb.DataContext.Caching.Redis" Version="2.4.0" />
+      <PackageReference Include="Newtonsoft.Json" Version="12.0.3-beta1" />
       <PackageReference Include="Rook.Framework.Core" Version="2019.10.1.62" />
     </ItemGroup>
 

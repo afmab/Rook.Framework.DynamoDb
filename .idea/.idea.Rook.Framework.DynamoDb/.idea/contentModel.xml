@@ -4,6 +4,7 @@
     <e p="$USER_HOME$/.Rider2019.2/system/extResources" t="IncludeRecursive" />
     <e p="$USER_HOME$/.Rider2019.2/system/resharper-host/local/Transient/ReSharperHost/v192/SolutionCaches/_Rook.Framework.DynamoDb.694512766.00" t="ExcludeRecursive" />
     <e p="$PROJECT_DIR$" t="IncludeFlat">
+      <e p=".travis.yml" t="Include" />
       <e p="Rook.Framework.DynamoDb" t="IncludeRecursive">
         <e p="Data" t="Include">
           <e p="DataEntityBase.cs" t="Include" />

@@ -1,29 +1,34 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using Amazon.DynamoDBv2;
-using Amazon.DynamoDBv2.DataModel;
-using Amazon.DynamoDBv2.DocumentModel;
-using Amazon.DynamoDBv2.Model;
-using MongoDB.Bson;
+using Linq2DynamoDb.DataContext;
+using Linq2DynamoDb.DataContext.Caching.Redis;
 using Newtonsoft.Json;
 using Rook.Framework.Core.AmazonKinesisFirehose;
 using Rook.Framework.Core.Common;
 using Rook.Framework.Core.Services;
 using Rook.Framework.Core.StructureMap;
-using Rook.Framework.DynamoDb.Utilities;
+using StackExchange.Redis;
+using OperationType = Amazon.DynamoDBv2.OperationType;
 
 namespace Rook.Framework.DynamoDb.Data
 {
-    public sealed class DynamoStore : IStartable, IDynamoStore
+    //TODO: Error checking on external calls
+    //TODO: Metrics on external calls
+    //TODO: More Logging
+    public sealed class DynamoStore :   IStartable, IDynamoStore
     {
-        private AmazonDynamoDBClient DynamoConnection { get; set; }
-        private readonly IDynamoClient _client;
+        private readonly DataContext _context;
+        private static  AmazonDynamoDBClient _client;
         private readonly IContainerFacade _containerFacade;
         internal readonly ILogger Logger;
         private readonly IAmazonFirehoseProducer _amazonFirehoseProducer; 
         private readonly string _amazonKinesisStreamName;
+        private static  ConnectionMultiplexer _redisConn;
         internal static Dictionary<Type, object> TableCache { get; } = new Dictionary<Type, object>();
         public StartupPriority StartupPriority { get; } = StartupPriority.Highest;
         
@@ -31,17 +36,21 @@ namespace Rook.Framework.DynamoDb.Data
         public DynamoStore(
             ILogger logger,
             IConfigurationManager configurationManager,
-            IDynamoClient client,
             IContainerFacade containerFacade,
             IAmazonFirehoseProducer amazonFirehoseProducer
-         )
+         ) 
         {
-            _client = client;
+            _client = new AmazonDynamoDBClient();
             _containerFacade = containerFacade;
             Logger = logger;
             _amazonFirehoseProducer = amazonFirehoseProducer;
-            _client.Create();
             _amazonKinesisStreamName = configurationManager.Get<string>("RepositoryKinesisStream");
+            _redisConn = ConnectionMultiplexer.Connect(configurationManager.AppSettings["RedisConnectionString"]);
+            _client = new AmazonDynamoDBClient(
+                configurationManager.Get<string>("AWSAccessKey"),
+                configurationManager.Get<string>("AWSSecretKey"));
+            _context = new DataContext(_client,String.Empty);
+
         }
         
         public void Start()
@@ -56,13 +65,10 @@ namespace Rook.Framework.DynamoDb.Data
         
         public void Put<T>(T entityToStore) where T : DataEntity
         {
-            Table table = GetCachedTable<T>();
-            
-            DynamoDBContext db = new DynamoDBContext(DynamoConnection);
-            Document document = db.ToDocument(entityToStore);
-            
-            table.PutItemAsync(document);
-            
+            var table = GetCachedTable<T>();
+            table.InsertOnSubmit(entityToStore);
+            _context.SubmitChanges();
+
             _amazonFirehoseProducer.PutRecord(_amazonKinesisStreamName,
                 FormatEntity(entityToStore, Helpers.OperationType.Insert));
             
@@ -72,121 +78,135 @@ namespace Rook.Framework.DynamoDb.Data
                 new LogItem("Entity", entityToStore.ToString));
         }
 
+        public void Put<T>(T entityToStore, Expression<Func<T, bool>> filter) where T : DataEntity
+        {
+            var table = this.GetCachedTable<T>();
+            var deleteResult = table.AsQueryable().Where(filter);
+            
+            foreach (var dataEntity in deleteResult)
+            {
+                table.RemoveOnSubmit(dataEntity);
+            }
+            table.InsertOnSubmit(entityToStore);
+            _context.SubmitChanges();
+            
+            _amazonFirehoseProducer.PutRecord(_amazonKinesisStreamName,
+                deleteResult.Count() != 0
+                    ? FormatEntity(entityToStore, Helpers.OperationType.Update)
+                    : FormatEntity(entityToStore, Helpers.OperationType.Insert));
+            
+            Logger.Trace($"{nameof(DynamoStore)}.{nameof(Put)}",
+                new LogItem("Event", "Insert entity"),
+                new LogItem("Type", typeof(T).ToString),
+                new LogItem("Entity", entityToStore.ToString),
+                new LogItem("Filter", filter.Body.ToString));
+        }
+
+        public IQueryable<T> QueryableCollection<T>() where T : DataEntity
+        {
+            throw new NotImplementedException();
+        }
+
+        public void Remove<T>(Expression<Func<T, bool>> filter) where T : DataEntity
+        {
+            throw new NotImplementedException();
+        }
+//TODO: this one too
+//        public void Update<T>(Expression<Func<T, bool>> filter, UpdateDefinition<T> updates) where T : DataEntity
+//        {
+//            
+//        }
+
         public void Remove<T>(object id) where T : DataEntity
         {
-            Table table = GetCachedTable<T>();
-            table.DeleteItemAsync((Guid)id);
+            var table = this.GetCachedTable<T>();
+            var entity = table.Find(id);
+            table.RemoveOnSubmit(entity);
+            _context.SubmitChanges();
+
             Logger.Trace($"{nameof(DynamoStore)}.{nameof(Remove)}",
                 new LogItem("Event", "Remove entity"),
                 new LogItem("Type", typeof(T).ToString),
                 new LogItem("Id", id.ToString));
         }
+        
+        public void RemoveEntity<T>(T entityToRemove) where T : DataEntity
+        {
+            Remove<T>(entityToRemove.Id);
+        }
 
+        public long Count<T>() where T : DataEntity
+        {
+            Logger.Trace($"{nameof(DynamoStore)}.{nameof(Count)}",
+                new LogItem("Event", "Get collection count"), new LogItem("Type", typeof(T).ToString));
+            return GetCachedTable<T>().Count(arg => true);
+        }
+
+        public long Count<T>(Expression<Func<T, bool>> expression) where T : DataEntity
+        {
+            Logger.Trace($"{nameof(DynamoStore)}.{nameof(Count)}",
+                new LogItem("Event", "Get collection count"), new LogItem("Type", typeof(T).ToString),
+                new LogItem("Expression", expression.ToString));
+            return GetCachedTable<T>().Count(expression);
+        }
+        
         public T Get<T>(object id) where T : DataEntity
         {
-            Table table = GetCachedTable<T>();
-            var document = table.GetItemAsync((Guid)id);
+            var table = this.GetCachedTable<T>();
+            var entity = table.FirstOrDefault(x => x.Id == id);
+
             Logger.Trace($"{nameof(DynamoStore)}.{nameof(Get)}",
                 new LogItem("Event", "Get entity"),
                 new LogItem("Type", typeof(T).ToString),
                 new LogItem("Id", id.ToString));
-            return JsonConvert.DeserializeObject<T>(document.Result);
+            
+            return entity;
         }
-        
-        private void Connect()
+
+        public IEnumerable<T> Get<T>(Expression<Func<T, bool>> filter) where T : DataEntity
         {
-            if (DynamoConnection == null)
-                DynamoConnection = _client.GetDatabase();
-                    
+            return this.GetCachedTable<T>().Where(filter);
         }
-        
+
+        public IEnumerable<T> GetTable<T>() where T : DataEntity
+        {
+            return this.GetCachedTable<T>();
+        }
+
+        public IList<T> GetList<T>(Expression<Func<T, bool>> filter)
+            where T : DataEntity
+        {
+            return Get(filter).ToList();
+        }
+
         public bool Ping()
         {
-            //TODO: implement a proper check here 
-            Connect();
+            //TODO: do this mark
             return true;
         }
 
-        private void GetOrCreateTable<T>()
+        private void GetOrCreateTable<T>() where T : DataEntity
         {
-            Connect();
             
-           if (!GetCachedTables().Contains(typeof(T).Name)) 
-               CreateDynamoTable<T>();
-           
-           var  table = Table.LoadTable(DynamoConnection, typeof(T).Name);
+            _context.CreateTableIfNotExists(new CreateTableArgs<T>(typeof(T).Name, typeof(string), g => g.Id ));
+            _context.SubmitChanges();
+            _context.GetTable<T>(typeof(T).Name, () => new RedisTableCache(_redisConn));
+           var table = _context.GetTable<T>();
            TableCache.Add(typeof(T),table);
         }
 
-        private void CreateDynamoTable<T>()
-        {
-            var attributeDefinitions = new List<AttributeDefinition>();
-            PropertyInfo[] members = typeof(T).GetProperties();
-            foreach (PropertyInfo memberInfo in members)
-            {
-                var attribute = new AttributeDefinition()
-                {
-                    AttributeName = memberInfo.Name,
-                    AttributeType = DynamoTypeMapper.GetDynamoType(memberInfo.PropertyType)
-                };
-                attributeDefinitions.Add(attribute);
-            }
-
-            var request = new CreateTableRequest
-            {
-                TableName = typeof(T).Name,
-                AttributeDefinitions = attributeDefinitions,
-                KeySchema = new List<KeySchemaElement>()
-                {
-                    new KeySchemaElement
-                    {
-                        AttributeName = "Id",
-                        KeyType = "HASH" //Partition key
-                    }
-                },
-                ProvisionedThroughput = new ProvisionedThroughput
-                {
-                    ReadCapacityUnits = 10,
-                    WriteCapacityUnits = 5
-                }
-            };
-            var response = DynamoConnection.CreateTableAsync(request).Result;
-        }
-
-        private List<string> GetCachedTables()
-        {
-            var tableNames = new List<string>();
-            string lastEvaluatedTableName = null;
-            do
-            {
-                var request = new ListTablesRequest
-                {
-                    Limit = 10, 
-                    ExclusiveStartTableName = lastEvaluatedTableName
-                };
-
-                var response = DynamoConnection.ListTablesAsync(request).Result;
-                var results = response.TableNames;
-                tableNames.AddRange(results);
-                lastEvaluatedTableName = response.LastEvaluatedTableName;
-
-            } while (lastEvaluatedTableName != null);
-
-            return tableNames;
-        }
-        
-        private Table GetCachedTable<T>() where T : DataEntity
+        private DataTable<T> GetCachedTable<T>() where T : DataEntity
         {
             lock (TableCache)
             {
                 if (!TableCache.ContainsKey(typeof(T)))
                 {
                     Logger.Trace($"{nameof(DynamoStore)}.{nameof(GetCachedTable)}<{typeof(T).Name}>",
-                        new LogItem("Action", "Not cached, call GetOrCreateCollection"));
+                        new LogItem("Action", "Not cached, call GetOrCreateTable"));
                     GetOrCreateTable<T>();
                 }
 
-                return (Table)TableCache[typeof(T)];
+                return (DataTable<T>)TableCache[typeof(T)];
             }
         }
         
@@ -201,9 +221,9 @@ namespace Rook.Framework.DynamoDb.Data
                 Entity = JsonConvert.SerializeObject(entity),
                 EntityType = typeof(T).Name,
                 Date = DateTime.UtcNow
-            }.ToJson();
+            };
 
-            return regex.Replace(result, "$1");
+            return regex.Replace(Newtonsoft.Json.JsonConvert.SerializeObject(result),"$1");
         }
     }
 }
