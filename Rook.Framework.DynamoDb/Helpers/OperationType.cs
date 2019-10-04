@@ -4,6 +4,7 @@ namespace Rook.Framework.DynamoDb.Helpers
     {
         Insert = 1,
         Update,
+        Remove,
 		
     }
 }

@@ -224,7 +224,7 @@ namespace Rook.Framework.DynamoDb.Data
             }
             
         }
-//TODO: add datapump 
+
         public void Update<T>(T entityToStore) where T : DataEntity
         {
             var table = this.GetCachedTable<T>();
@@ -242,6 +242,21 @@ namespace Rook.Framework.DynamoDb.Data
                     new LogItem("Type", typeof(T).ToString),
                     new LogItem("Entity", entityToStore.ToString),
                     new LogItem("DurationMilliseconds", timer.Elapsed.TotalMilliseconds));
+
+                try
+                {
+                    _amazonFirehoseProducer.PutRecord(_amazonKinesisStreamName, FormatEntity(entityToStore, Helpers.OperationType.Update));
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"{nameof(DynamoStore)}.{nameof(Update)}",
+                        new LogItem("Event", "Failed to send update to data lake"),
+                        new LogItem("Type", typeof(T).ToString),
+                        new LogItem("Entity", entityToStore.ToString),
+                        new LogItem("Exception Message", ex.Message),
+                        new LogItem("Stack Trace", ex.StackTrace),
+                        new LogItem("DurationMilliseconds", timer.Elapsed.TotalMilliseconds));
+                }
             }
             catch (Exception ex)
             {
@@ -257,7 +272,7 @@ namespace Rook.Framework.DynamoDb.Data
             
 
         }
-//TODO: add datapump 
+
         public void Remove<T>(object id) where T : DataEntity
         {
             var table = this.GetCachedTable<T>();
@@ -274,6 +289,21 @@ namespace Rook.Framework.DynamoDb.Data
                     new LogItem("Type", typeof(T).ToString),
                     new LogItem("Id", id.ToString),
                     new LogItem("DurationMilliseconds", timer.Elapsed.TotalMilliseconds));
+
+                try
+                {
+                    _amazonFirehoseProducer.PutRecord(_amazonKinesisStreamName, FormatEntity(entity, Helpers.OperationType.Remove));
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"{nameof(DynamoStore)}.{nameof(Remove)}",
+                        new LogItem("Event", "Failed to send update to data lake"),
+                        new LogItem("Type", typeof(T).ToString),
+                        new LogItem("Entity", entity.ToString),
+                        new LogItem("Exception Message", ex.Message),
+                        new LogItem("Stack Trace", ex.StackTrace),
+                        new LogItem("DurationMilliseconds", timer.Elapsed.TotalMilliseconds));
+                }
             }
             catch (Exception ex)
             {
