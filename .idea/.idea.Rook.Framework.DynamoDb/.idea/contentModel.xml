@@ -10,6 +10,7 @@
           <e p="DataEntityBase.cs" t="Include" />
           <e p="DynamoClient.cs" t="Include" />
           <e p="DynamoStore.cs" t="Include" />
+          <e p="HealthCheckEntity.cs" t="Include" />
           <e p="IDynamoClient.cs" t="Include" />
           <e p="IDynamoStore.cs" t="Include" />
         </e>

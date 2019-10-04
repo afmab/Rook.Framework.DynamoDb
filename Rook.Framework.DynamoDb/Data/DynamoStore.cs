@@ -61,8 +61,24 @@ namespace Rook.Framework.DynamoDb.Data
                 var method = typeof(DynamoStore).GetMethod(nameof(GetOrCreateTable), BindingFlags.NonPublic | BindingFlags.Instance);
                 if (method != null) method.MakeGenericMethod(dataEntity.GetType()).Invoke(this, new object[] { });
             }
+
+            SetupHealthCheck();
         }
-        
+
+        private void SetupHealthCheck()
+        {
+            var record = new HealthCheckEntity(){Id = "1",CreatedAt = DateTime.Now, ExpiresAt = DateTime.Now.AddYears(10)};
+            
+            _context.CreateTableIfNotExists(new CreateTableArgs<HealthCheckEntity>(typeof(HealthCheckEntity).Name, typeof(string), g => g.Id ));
+            var table = _context.GetTable<HealthCheckEntity>();
+            var entity = table.FirstOrDefault(x => (string)x.Id == "1");
+            if (entity == null)
+            {
+                table.InsertOnSubmit(record);
+                _context.SubmitChanges();
+            }
+        }
+
         public void Put<T>(T entityToStore) where T : DataEntity
         {
             var table = GetCachedTable<T>();
@@ -104,18 +120,32 @@ namespace Rook.Framework.DynamoDb.Data
 
         public IQueryable<T> QueryableCollection<T>() where T : DataEntity
         {
-            throw new NotImplementedException();
+            Logger.Trace($"{nameof(DynamoStore)}.{nameof(QueryableCollection)}",
+                new LogItem("Event", "Get table as queryable"), new LogItem("Type", typeof(T).ToString));
+            return GetCachedTable<T>().AsQueryable();
+            
         }
 
         public void Remove<T>(Expression<Func<T, bool>> filter) where T : DataEntity
         {
-            throw new NotImplementedException();
+            var table = this.GetCachedTable<T>();
+            var deleteResult = table.AsQueryable().Where(filter);
+            
+            foreach (var dataEntity in deleteResult)
+            {
+                table.RemoveOnSubmit(dataEntity);
+            }
+            _context.SubmitChanges();
         }
-//TODO: this one too
-//        public void Update<T>(Expression<Func<T, bool>> filter, UpdateDefinition<T> updates) where T : DataEntity
-//        {
-//            
-//        }
+
+        public void Update<T>(T entityToStore) where T : DataEntity
+        {
+            var table = this.GetCachedTable<T>();
+            var oldEntity = table.FirstOrDefault(x => x.Id == entityToStore.Id);
+            table.RemoveOnSubmit(oldEntity);
+            table.InsertOnSubmit(entityToStore);
+            _context.SubmitChanges();
+        }
 
         public void Remove<T>(object id) where T : DataEntity
         {
@@ -181,8 +211,9 @@ namespace Rook.Framework.DynamoDb.Data
 
         public bool Ping()
         {
-            //TODO: do this mark
-            return true;
+            var table = _context.GetTable<HealthCheckEntity>();
+            var record = table.FirstOrDefault(x => (string)x.Id == "1");
+            return record != null;
         }
 
         private void GetOrCreateTable<T>() where T : DataEntity
