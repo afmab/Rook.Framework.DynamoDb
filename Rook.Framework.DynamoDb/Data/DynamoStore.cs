@@ -17,9 +17,8 @@ using OperationType = Amazon.DynamoDBv2.OperationType;
 
 namespace Rook.Framework.DynamoDb.Data
 {
-    //TODO: Error checking on external calls
+
     //TODO: Metrics on external calls
-    //TODO: More Logging
     public sealed class DynamoStore :   IStartable, IDynamoStore
     {
         private readonly DataContext _context;
@@ -77,21 +76,51 @@ namespace Rook.Framework.DynamoDb.Data
                 table.InsertOnSubmit(record);
                 _context.SubmitChanges();
             }
+            Logger.Trace($"{nameof(DynamoStore)}.{nameof(SetupHealthCheck)}",
+                new LogItem("Event", "Insert health check entity"),
+                new LogItem("Type", typeof(HealthCheckEntity).ToString),
+                new LogItem("Entity", record.ToString));
+            
         }
 
         public void Put<T>(T entityToStore) where T : DataEntity
         {
             var table = GetCachedTable<T>();
             table.InsertOnSubmit(entityToStore);
-            _context.SubmitChanges();
 
-            _amazonFirehoseProducer.PutRecord(_amazonKinesisStreamName,
-                FormatEntity(entityToStore, Helpers.OperationType.Insert));
-            
-            Logger.Trace($"{nameof(DynamoStore)}.{nameof(Put)}",
-                new LogItem("Event", "Insert entity"),
-                new LogItem("Type", typeof(T).ToString),
-                new LogItem("Entity", entityToStore.ToString));
+            try
+            {
+                _context.SubmitChanges();
+                Logger.Trace($"{nameof(DynamoStore)}.{nameof(Put)}",
+                    new LogItem("Event", "Insert entity"),
+                    new LogItem("Type", typeof(T).ToString),
+                    new LogItem("Entity", entityToStore.ToString));
+                
+                try
+                {
+                    _amazonFirehoseProducer.PutRecord(_amazonKinesisStreamName,
+                        FormatEntity(entityToStore, Helpers.OperationType.Insert));
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"{nameof(DynamoStore)}.{nameof(Put)}",
+                        new LogItem("Event", "Failed to send update to data lake"),
+                        new LogItem("Type", typeof(T).ToString),
+                        new LogItem("Entity", entityToStore.ToString),
+                        new LogItem("Exception Message", ex.Message),
+                        new LogItem("Stack Trace", ex.StackTrace));
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"{nameof(DynamoStore)}.{nameof(Put)}",
+                    new LogItem("Event", "Failed to insert entity"),
+                    new LogItem("Type", typeof(T).ToString),
+                    new LogItem("Entity", entityToStore.ToString),
+                    new LogItem("Exception Message", ex.Message),
+                    new LogItem("Stack Trace", ex.StackTrace));
+                throw;
+            }
         }
 
         public void Put<T>(T entityToStore, Expression<Func<T, bool>> filter) where T : DataEntity
@@ -104,18 +133,44 @@ namespace Rook.Framework.DynamoDb.Data
                 table.RemoveOnSubmit(dataEntity);
             }
             table.InsertOnSubmit(entityToStore);
-            _context.SubmitChanges();
-            
-            _amazonFirehoseProducer.PutRecord(_amazonKinesisStreamName,
-                deleteResult.Count() != 0
-                    ? FormatEntity(entityToStore, Helpers.OperationType.Update)
-                    : FormatEntity(entityToStore, Helpers.OperationType.Insert));
-            
-            Logger.Trace($"{nameof(DynamoStore)}.{nameof(Put)}",
-                new LogItem("Event", "Insert entity"),
-                new LogItem("Type", typeof(T).ToString),
-                new LogItem("Entity", entityToStore.ToString),
-                new LogItem("Filter", filter.Body.ToString));
+
+            try
+            {
+                _context.SubmitChanges();
+                Logger.Trace($"{nameof(DynamoStore)}.{nameof(Put)}",
+                    new LogItem("Event", "Insert entity"),
+                    new LogItem("Type", typeof(T).ToString),
+                    new LogItem("Entity", entityToStore.ToString),
+                    new LogItem("Filter", filter.Body.ToString));
+
+                try
+                {
+                    _amazonFirehoseProducer.PutRecord(_amazonKinesisStreamName,
+                        deleteResult.Count() != 0
+                            ? FormatEntity(entityToStore, Helpers.OperationType.Update)
+                            : FormatEntity(entityToStore, Helpers.OperationType.Insert));
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"{nameof(DynamoStore)}.{nameof(Put)}",
+                        new LogItem("Event", "Failed to send update to data lake"),
+                        new LogItem("Type", typeof(T).ToString),
+                        new LogItem("Entity", entityToStore.ToString),
+                        new LogItem("Exception Message", ex.Message),
+                        new LogItem("Stack Trace", ex.StackTrace));
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"{nameof(DynamoStore)}.{nameof(Put)}",
+                    new LogItem("Event", "Failed to insert entity"),
+                    new LogItem("Type", typeof(T).ToString),
+                    new LogItem("Entity", entityToStore.ToString),
+                    new LogItem("Filter", filter.Body.ToString),
+                    new LogItem("Exception Message", ex.Message),
+                    new LogItem("Stack Trace", ex.StackTrace));
+                throw;
+            }
         }
 
         public IQueryable<T> QueryableCollection<T>() where T : DataEntity
@@ -134,30 +189,85 @@ namespace Rook.Framework.DynamoDb.Data
             foreach (var dataEntity in deleteResult)
             {
                 table.RemoveOnSubmit(dataEntity);
+                Logger.Trace($"{nameof(DynamoStore)}.{nameof(Remove)}",
+                    new LogItem("Event", "Remove entity"),
+                    new LogItem("Type", typeof(T).ToString),
+                    new LogItem("Entity", dataEntity.ToString),
+                    new LogItem("Filter", filter.Body.ToString));
             }
-            _context.SubmitChanges();
-        }
 
+            try
+            {
+                _context.SubmitChanges();
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"{nameof(DynamoStore)}.{nameof(Put)}",
+                    new LogItem("Event", "Failed to insert entity"),
+                    new LogItem("Type", typeof(T).ToString),
+                    new LogItem("Filter", filter.Body.ToString),
+                    new LogItem("Exception Message", ex.Message),
+                    new LogItem("Stack Trace", ex.StackTrace));
+                throw;
+            }
+            
+        }
+//TODO: add datapump 
         public void Update<T>(T entityToStore) where T : DataEntity
         {
             var table = this.GetCachedTable<T>();
             var oldEntity = table.FirstOrDefault(x => x.Id == entityToStore.Id);
             table.RemoveOnSubmit(oldEntity);
             table.InsertOnSubmit(entityToStore);
-            _context.SubmitChanges();
-        }
 
+            try
+            {
+                _context.SubmitChanges();
+
+                Logger.Trace($"{nameof(DynamoStore)}.{nameof(Update)}",
+                    new LogItem("Event", "Update entity"),
+                    new LogItem("Type", typeof(T).ToString),
+                    new LogItem("Entity", entityToStore.ToString));
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"{nameof(DynamoStore)}.{nameof(Update)}",
+                    new LogItem("Event", "Failed to update entity"),
+                    new LogItem("Type", typeof(T).ToString),
+                    new LogItem("Entity", entityToStore.ToString),
+                    new LogItem("Exception Message", ex.Message),
+                    new LogItem("Stack Trace", ex.StackTrace));
+                throw;
+            }
+            
+
+        }
+//TODO: add datapump 
         public void Remove<T>(object id) where T : DataEntity
         {
             var table = this.GetCachedTable<T>();
             var entity = table.Find(id);
             table.RemoveOnSubmit(entity);
-            _context.SubmitChanges();
 
-            Logger.Trace($"{nameof(DynamoStore)}.{nameof(Remove)}",
-                new LogItem("Event", "Remove entity"),
-                new LogItem("Type", typeof(T).ToString),
-                new LogItem("Id", id.ToString));
+            try
+            {
+                _context.SubmitChanges();
+
+                Logger.Trace($"{nameof(DynamoStore)}.{nameof(Remove)}",
+                    new LogItem("Event", "Remove entity"),
+                    new LogItem("Type", typeof(T).ToString),
+                    new LogItem("Id", id.ToString));
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"{nameof(DynamoStore)}.{nameof(Remove)}",
+                    new LogItem("Event", "Failed to remove entity"),
+                    new LogItem("Type", typeof(T).ToString),
+                    new LogItem("Entity", entity.ToString),
+                    new LogItem("Exception Message", ex.Message),
+                    new LogItem("Stack Trace", ex.StackTrace));
+                throw;
+            }
         }
         
         public void RemoveEntity<T>(T entityToRemove) where T : DataEntity
@@ -195,17 +305,28 @@ namespace Rook.Framework.DynamoDb.Data
 
         public IEnumerable<T> Get<T>(Expression<Func<T, bool>> filter) where T : DataEntity
         {
+            Logger.Trace($"{nameof(DynamoStore)}.{nameof(Get)}",
+                new LogItem("Event", "Get entity"),
+                new LogItem("Type", typeof(T).ToString),
+                new LogItem("Filter", filter.Body.ToString));
             return this.GetCachedTable<T>().Where(filter);
         }
 
         public IEnumerable<T> GetTable<T>() where T : DataEntity
         {
+            Logger.Trace($"{nameof(DynamoStore)}.{nameof(GetTable)}",
+                new LogItem("Event", "Get table"),
+                new LogItem("Type", typeof(T).ToString));
             return this.GetCachedTable<T>();
         }
 
         public IList<T> GetList<T>(Expression<Func<T, bool>> filter)
             where T : DataEntity
         {
+            Logger.Trace($"{nameof(DynamoStore)}.{nameof(GetList)}",
+                new LogItem("Event", "Get list"),
+                new LogItem("Type", typeof(T).ToString),
+                new LogItem("Filter", filter.Body.ToString));
             return Get(filter).ToList();
         }
 
@@ -220,7 +341,24 @@ namespace Rook.Framework.DynamoDb.Data
         {
             
             _context.CreateTableIfNotExists(new CreateTableArgs<T>(typeof(T).Name, typeof(string), g => g.Id ));
-            _context.SubmitChanges();
+
+            try
+            {
+                _context.SubmitChanges();
+                Logger.Trace($"{nameof(DynamoStore)}.{nameof(GetCachedTable)}<{typeof(T).Name}>",
+                    new LogItem("Action", "Getting or Creating table"),
+                    new LogItem("Type", typeof(T).ToString));
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"{nameof(DynamoStore)}.{nameof(GetCachedTable)}<{typeof(T).Name}>",
+                    new LogItem("Action", "Failed to create table"),
+                    new LogItem("Type", typeof(T).ToString),
+                    new LogItem("Exception Message", ex.Message),
+                    new LogItem("Stack Trace", ex.StackTrace));
+                throw;
+            }
+            
             _context.GetTable<T>(typeof(T).Name, () => new RedisTableCache(_redisConn));
            var table = _context.GetTable<T>();
            TableCache.Add(typeof(T),table);
@@ -254,7 +392,7 @@ namespace Rook.Framework.DynamoDb.Data
                 Date = DateTime.UtcNow
             };
 
-            return regex.Replace(Newtonsoft.Json.JsonConvert.SerializeObject(result),"$1");
+            return regex.Replace(JsonConvert.SerializeObject(result),"$1");
         }
     }
 }
