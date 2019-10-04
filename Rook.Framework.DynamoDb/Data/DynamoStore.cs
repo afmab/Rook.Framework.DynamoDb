@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -17,8 +18,6 @@ using OperationType = Amazon.DynamoDBv2.OperationType;
 
 namespace Rook.Framework.DynamoDb.Data
 {
-
-    //TODO: Metrics on external calls
     public sealed class DynamoStore :   IStartable, IDynamoStore
     {
         private readonly DataContext _context;
@@ -87,14 +86,16 @@ namespace Rook.Framework.DynamoDb.Data
         {
             var table = GetCachedTable<T>();
             table.InsertOnSubmit(entityToStore);
-
+            Stopwatch timer = Stopwatch.StartNew();
+    
             try
             {
                 _context.SubmitChanges();
                 Logger.Trace($"{nameof(DynamoStore)}.{nameof(Put)}",
                     new LogItem("Event", "Insert entity"),
                     new LogItem("Type", typeof(T).ToString),
-                    new LogItem("Entity", entityToStore.ToString));
+                    new LogItem("Entity", entityToStore.ToString),
+                    new LogItem("DurationMilliseconds", timer.Elapsed.TotalMilliseconds));
                 
                 try
                 {
@@ -108,7 +109,7 @@ namespace Rook.Framework.DynamoDb.Data
                         new LogItem("Type", typeof(T).ToString),
                         new LogItem("Entity", entityToStore.ToString),
                         new LogItem("Exception Message", ex.Message),
-                        new LogItem("Stack Trace", ex.StackTrace));
+                        new LogItem("Stack Trace", ex.StackTrace),);
                 }
             }
             catch (Exception ex)
@@ -118,7 +119,8 @@ namespace Rook.Framework.DynamoDb.Data
                     new LogItem("Type", typeof(T).ToString),
                     new LogItem("Entity", entityToStore.ToString),
                     new LogItem("Exception Message", ex.Message),
-                    new LogItem("Stack Trace", ex.StackTrace));
+                    new LogItem("Stack Trace", ex.StackTrace),
+                    new LogItem("DurationMilliseconds", timer.Elapsed.TotalMilliseconds));
                 throw;
             }
         }
@@ -134,6 +136,7 @@ namespace Rook.Framework.DynamoDb.Data
             }
             table.InsertOnSubmit(entityToStore);
 
+            Stopwatch timer = Stopwatch.StartNew();
             try
             {
                 _context.SubmitChanges();
@@ -141,7 +144,8 @@ namespace Rook.Framework.DynamoDb.Data
                     new LogItem("Event", "Insert entity"),
                     new LogItem("Type", typeof(T).ToString),
                     new LogItem("Entity", entityToStore.ToString),
-                    new LogItem("Filter", filter.Body.ToString));
+                    new LogItem("Filter", filter.Body.ToString),
+                    new LogItem("DurationMilliseconds", timer.Elapsed.TotalMilliseconds));
 
                 try
                 {
@@ -168,7 +172,8 @@ namespace Rook.Framework.DynamoDb.Data
                     new LogItem("Entity", entityToStore.ToString),
                     new LogItem("Filter", filter.Body.ToString),
                     new LogItem("Exception Message", ex.Message),
-                    new LogItem("Stack Trace", ex.StackTrace));
+                    new LogItem("Stack Trace", ex.StackTrace),
+                    new LogItem("DurationMilliseconds", timer.Elapsed.TotalMilliseconds));
                 throw;
             }
         }
@@ -196,9 +201,15 @@ namespace Rook.Framework.DynamoDb.Data
                     new LogItem("Filter", filter.Body.ToString));
             }
 
+            Stopwatch timer = Stopwatch.StartNew();
             try
             {
                 _context.SubmitChanges();
+                Logger.Trace($"{nameof(DynamoStore)}.{nameof(Remove)}",
+                    new LogItem("Event", "Remove entity success"),
+                    new LogItem("Type", typeof(T).ToString),
+                    new LogItem("Filter", filter.Body.ToString),
+                    new LogItem("DurationMilliseconds", timer.Elapsed.TotalMilliseconds));
             }
             catch (Exception ex)
             {
@@ -207,7 +218,8 @@ namespace Rook.Framework.DynamoDb.Data
                     new LogItem("Type", typeof(T).ToString),
                     new LogItem("Filter", filter.Body.ToString),
                     new LogItem("Exception Message", ex.Message),
-                    new LogItem("Stack Trace", ex.StackTrace));
+                    new LogItem("Stack Trace", ex.StackTrace),
+                    new LogItem("DurationMilliseconds", timer.Elapsed.TotalMilliseconds));
                 throw;
             }
             
@@ -220,6 +232,7 @@ namespace Rook.Framework.DynamoDb.Data
             table.RemoveOnSubmit(oldEntity);
             table.InsertOnSubmit(entityToStore);
 
+            Stopwatch timer = Stopwatch.StartNew();
             try
             {
                 _context.SubmitChanges();
@@ -227,7 +240,8 @@ namespace Rook.Framework.DynamoDb.Data
                 Logger.Trace($"{nameof(DynamoStore)}.{nameof(Update)}",
                     new LogItem("Event", "Update entity"),
                     new LogItem("Type", typeof(T).ToString),
-                    new LogItem("Entity", entityToStore.ToString));
+                    new LogItem("Entity", entityToStore.ToString),
+                    new LogItem("DurationMilliseconds", timer.Elapsed.TotalMilliseconds));
             }
             catch (Exception ex)
             {
@@ -236,7 +250,8 @@ namespace Rook.Framework.DynamoDb.Data
                     new LogItem("Type", typeof(T).ToString),
                     new LogItem("Entity", entityToStore.ToString),
                     new LogItem("Exception Message", ex.Message),
-                    new LogItem("Stack Trace", ex.StackTrace));
+                    new LogItem("Stack Trace", ex.StackTrace),
+                    new LogItem("DurationMilliseconds", timer.Elapsed.TotalMilliseconds));
                 throw;
             }
             
@@ -249,6 +264,7 @@ namespace Rook.Framework.DynamoDb.Data
             var entity = table.Find(id);
             table.RemoveOnSubmit(entity);
 
+            Stopwatch timer = Stopwatch.StartNew();
             try
             {
                 _context.SubmitChanges();
@@ -256,7 +272,8 @@ namespace Rook.Framework.DynamoDb.Data
                 Logger.Trace($"{nameof(DynamoStore)}.{nameof(Remove)}",
                     new LogItem("Event", "Remove entity"),
                     new LogItem("Type", typeof(T).ToString),
-                    new LogItem("Id", id.ToString));
+                    new LogItem("Id", id.ToString),
+                    new LogItem("DurationMilliseconds", timer.Elapsed.TotalMilliseconds));
             }
             catch (Exception ex)
             {
@@ -265,7 +282,8 @@ namespace Rook.Framework.DynamoDb.Data
                     new LogItem("Type", typeof(T).ToString),
                     new LogItem("Entity", entity.ToString),
                     new LogItem("Exception Message", ex.Message),
-                    new LogItem("Stack Trace", ex.StackTrace));
+                    new LogItem("Stack Trace", ex.StackTrace),
+                    new LogItem("DurationMilliseconds", timer.Elapsed.TotalMilliseconds));
                 throw;
             }
         }
@@ -293,12 +311,14 @@ namespace Rook.Framework.DynamoDb.Data
         public T Get<T>(object id) where T : DataEntity
         {
             var table = this.GetCachedTable<T>();
+            Stopwatch timer = Stopwatch.StartNew();
             var entity = table.FirstOrDefault(x => x.Id == id);
 
             Logger.Trace($"{nameof(DynamoStore)}.{nameof(Get)}",
                 new LogItem("Event", "Get entity"),
                 new LogItem("Type", typeof(T).ToString),
-                new LogItem("Id", id.ToString));
+                new LogItem("Id", id.ToString),
+                new LogItem("DurationMilliseconds", timer.Elapsed.TotalMilliseconds));
             
             return entity;
         }
@@ -339,15 +359,16 @@ namespace Rook.Framework.DynamoDb.Data
 
         private void GetOrCreateTable<T>() where T : DataEntity
         {
-            
             _context.CreateTableIfNotExists(new CreateTableArgs<T>(typeof(T).Name, typeof(string), g => g.Id ));
+            Stopwatch timer = Stopwatch.StartNew();
 
             try
             {
                 _context.SubmitChanges();
                 Logger.Trace($"{nameof(DynamoStore)}.{nameof(GetCachedTable)}<{typeof(T).Name}>",
                     new LogItem("Action", "Getting or Creating table"),
-                    new LogItem("Type", typeof(T).ToString));
+                    new LogItem("Type", typeof(T).ToString),
+                    new LogItem("DurationMilliseconds", timer.Elapsed.TotalMilliseconds));
             }
             catch (Exception ex)
             {
@@ -355,7 +376,8 @@ namespace Rook.Framework.DynamoDb.Data
                     new LogItem("Action", "Failed to create table"),
                     new LogItem("Type", typeof(T).ToString),
                     new LogItem("Exception Message", ex.Message),
-                    new LogItem("Stack Trace", ex.StackTrace));
+                    new LogItem("Stack Trace", ex.StackTrace),
+                    new LogItem("DurationMilliseconds", timer.Elapsed.TotalMilliseconds));
                 throw;
             }
             
