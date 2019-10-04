@@ -109,7 +109,8 @@ namespace Rook.Framework.DynamoDb.Data
                         new LogItem("Type", typeof(T).ToString),
                         new LogItem("Entity", entityToStore.ToString),
                         new LogItem("Exception Message", ex.Message),
-                        new LogItem("Stack Trace", ex.StackTrace),);
+                        new LogItem("Stack Trace", ex.StackTrace),
+                        new LogItem("DurationMilliseconds", timer.Elapsed.TotalMilliseconds));
                 }
             }
             catch (Exception ex)
