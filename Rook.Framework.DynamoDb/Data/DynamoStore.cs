@@ -21,7 +21,6 @@ namespace Rook.Framework.DynamoDb.Data
     public sealed class DynamoStore :   IStartable, IDynamoStore
     {
         private readonly DataContext _context;
-        private static  AmazonDynamoDBClient _client;
         private readonly IContainerFacade _containerFacade;
         internal readonly ILogger Logger;
         private readonly IAmazonFirehoseProducer _amazonFirehoseProducer; 
@@ -35,20 +34,16 @@ namespace Rook.Framework.DynamoDb.Data
             ILogger logger,
             IConfigurationManager configurationManager,
             IContainerFacade containerFacade,
-            IAmazonFirehoseProducer amazonFirehoseProducer
+            IAmazonFirehoseProducer amazonFirehoseProducer, 
+            IDynamoClient dynamoClient
          ) 
         {
-            _client = new AmazonDynamoDBClient();
             _containerFacade = containerFacade;
             Logger = logger;
             _amazonFirehoseProducer = amazonFirehoseProducer;
             _amazonKinesisStreamName = configurationManager.Get<string>("RepositoryKinesisStream");
             _redisConn = ConnectionMultiplexer.Connect(configurationManager.AppSettings["RedisConnectionString"]);
-            _client = new AmazonDynamoDBClient(
-                configurationManager.Get<string>("AWSAccessKey"),
-                configurationManager.Get<string>("AWSSecretKey"));
-            _context = new DataContext(_client,String.Empty);
-
+            _context = dynamoClient.GetDatabase();
         }
         
         public void Start()
