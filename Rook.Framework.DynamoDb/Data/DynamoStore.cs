@@ -54,7 +54,6 @@ namespace Rook.Framework.DynamoDb.Data
                 var method = typeof(DynamoStore).GetMethod(nameof(GetOrCreateTable), BindingFlags.NonPublic | BindingFlags.Instance);
                 if (method != null) method.MakeGenericMethod(dataEntity.GetType()).Invoke(this, new object[] { });
             }
-
             SetupHealthCheck();
         }
 
@@ -74,9 +73,13 @@ namespace Rook.Framework.DynamoDb.Data
                 new LogItem("Event", "Insert health check entity"),
                 new LogItem("Type", typeof(HealthCheckEntity).ToString),
                 new LogItem("Entity", record.ToString));
-            
         }
 
+        /// <summary>
+        /// Puts the given DataEntity into its corresponding Dynamo table
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="entityToStore"></param>
         public void Put<T>(T entityToStore) where T : DataEntity
         {
             var table = GetCachedTable<T>();
@@ -121,6 +124,13 @@ namespace Rook.Framework.DynamoDb.Data
             }
         }
 
+        /// <summary>
+        /// Replaces all items matching the filter with the given DataEntity in the corresponding Dynamo table
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="entityToStore"></param>
+        /// <param name="filter"></param>
+        /// <param name="collation"></param>
         public void Put<T>(T entityToStore, Expression<Func<T, bool>> filter) where T : DataEntity
         {
             var table = this.GetCachedTable<T>();
@@ -174,14 +184,23 @@ namespace Rook.Framework.DynamoDb.Data
             }
         }
 
+        /// <summary>
+        /// Gets an IQueryable collection of the DataEntity requested. 
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
         public IQueryable<T> QueryableCollection<T>() where T : DataEntity
         {
             Logger.Trace($"{nameof(DynamoStore)}.{nameof(QueryableCollection)}",
                 new LogItem("Event", "Get table as queryable"), new LogItem("Type", typeof(T).ToString));
             return GetCachedTable<T>().AsQueryable();
-            
         }
-
+        
+        /// <summary>
+        /// Removes all items matching the filter in the corresponding Dynamo table
+        /// </summary>
+        /// <param name="filter"></param>
+        /// <typeparam name="T"></typeparam>
         public void Remove<T>(Expression<Func<T, bool>> filter) where T : DataEntity
         {
             var table = this.GetCachedTable<T>();
@@ -218,9 +237,13 @@ namespace Rook.Framework.DynamoDb.Data
                     new LogItem("DurationMilliseconds", timer.Elapsed.TotalMilliseconds));
                 throw;
             }
-            
         }
-
+        
+        /// <summary>
+        /// Updates the given DataEntity in the corresponding Dynamo table 
+        /// </summary>
+        /// <param name="entityToStore"></param>
+        /// <typeparam name="T"></typeparam>
         public void Update<T>(T entityToStore) where T : DataEntity
         {
             var table = this.GetCachedTable<T>();
@@ -265,10 +288,13 @@ namespace Rook.Framework.DynamoDb.Data
                     new LogItem("DurationMilliseconds", timer.Elapsed.TotalMilliseconds));
                 throw;
             }
-            
-
         }
-
+        
+        /// <summary>
+        /// Removes DataEntity with the given Id from the corresponding Dynamo table 
+        /// </summary>
+        /// <param name="id"></param>
+        /// <typeparam name="T"></typeparam>
         public void Remove<T>(object id) where T : DataEntity
         {
             var table = this.GetCachedTable<T>();
@@ -313,12 +339,21 @@ namespace Rook.Framework.DynamoDb.Data
                 throw;
             }
         }
-        
+        /// <summary>
+        /// Removes the given DataEntity in the corresponding Dynamo table
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="entityToRemove"></param>
         public void RemoveEntity<T>(T entityToRemove) where T : DataEntity
         {
             Remove<T>(entityToRemove.Id);
         }
 
+        /// <summary>
+        /// Returns the number of items of the requested type in the Dynamo table.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
         public long Count<T>() where T : DataEntity
         {
             Logger.Trace($"{nameof(DynamoStore)}.{nameof(Count)}",
@@ -326,6 +361,11 @@ namespace Rook.Framework.DynamoDb.Data
             return GetCachedTable<T>().Count(arg => true);
         }
 
+        /// <summary>
+        /// Returns the number of items of the requested type in the Dynamo table filtered by the given expression.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
         public long Count<T>(Expression<Func<T, bool>> expression) where T : DataEntity
         {
             Logger.Trace($"{nameof(DynamoStore)}.{nameof(Count)}",
@@ -334,6 +374,12 @@ namespace Rook.Framework.DynamoDb.Data
             return GetCachedTable<T>().Count(expression);
         }
         
+        /// <summary>
+        /// Gets the requested item of requested type from Dynamo table
+        /// </summary>
+        /// <param name="id"></param>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
         public T Get<T>(object id) where T : DataEntity
         {
             var table = this.GetCachedTable<T>();
@@ -349,6 +395,11 @@ namespace Rook.Framework.DynamoDb.Data
             return entity;
         }
 
+        /// <summary>
+        /// Gets an IEnumerable collection items matching the filter in the corresponding Dynamo table
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="filter"></param>
         public IEnumerable<T> Get<T>(Expression<Func<T, bool>> filter) where T : DataEntity
         {
             Logger.Trace($"{nameof(DynamoStore)}.{nameof(Get)}",
@@ -357,7 +408,10 @@ namespace Rook.Framework.DynamoDb.Data
                 new LogItem("Filter", filter.Body.ToString));
             return this.GetCachedTable<T>().Where(filter);
         }
-
+        /// <summary>
+        /// Gets an IEnumerable collection of tables of a given type in the corresponding Dynamo database
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
         public IEnumerable<T> GetTable<T>() where T : DataEntity
         {
             Logger.Trace($"{nameof(DynamoStore)}.{nameof(GetTable)}",
@@ -366,6 +420,11 @@ namespace Rook.Framework.DynamoDb.Data
             return this.GetCachedTable<T>();
         }
 
+        /// <summary>
+        /// Gets all items matching the filter of the given type in the corresponding Dynamo table
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="filter"></param>
         public IList<T> GetList<T>(Expression<Func<T, bool>> filter)
             where T : DataEntity
         {
@@ -375,7 +434,10 @@ namespace Rook.Framework.DynamoDb.Data
                 new LogItem("Filter", filter.Body.ToString));
             return Get(filter).ToList();
         }
-
+        /// <summary>
+        /// Checks connection to Dynamo is active
+        /// </summary>
+        /// <returns></returns>
         public bool Ping()
         {
             var table = _context.GetTable<HealthCheckEntity>();
