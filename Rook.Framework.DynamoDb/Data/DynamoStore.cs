@@ -5,11 +5,9 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text.RegularExpressions;
-using Amazon.DynamoDBv2;
 using Linq2DynamoDb.DataContext;
 using Linq2DynamoDb.DataContext.Caching.Redis;
 using Newtonsoft.Json;
-using Rook.Framework.Core.AmazonKinesisFirehose;
 using Rook.Framework.Core.Common;
 using Rook.Framework.Core.Services;
 using Rook.Framework.Core.StructureMap;
@@ -23,8 +21,6 @@ namespace Rook.Framework.DynamoDb.Data
         private readonly DataContext _context;
         private readonly IContainerFacade _containerFacade;
         internal readonly ILogger Logger;
-        private readonly IAmazonFirehoseProducer _amazonFirehoseProducer; 
-        private readonly string _amazonKinesisStreamName;
         private static  ConnectionMultiplexer _redisConn;
         internal static Dictionary<Type, object> TableCache { get; } = new Dictionary<Type, object>();
         public StartupPriority StartupPriority { get; } = StartupPriority.Highest;
@@ -34,14 +30,11 @@ namespace Rook.Framework.DynamoDb.Data
             ILogger logger,
             IConfigurationManager configurationManager,
             IContainerFacade containerFacade,
-            IAmazonFirehoseProducer amazonFirehoseProducer, 
             IDynamoClient dynamoClient
          ) 
         {
             _containerFacade = containerFacade;
             Logger = logger;
-            _amazonFirehoseProducer = amazonFirehoseProducer;
-            _amazonKinesisStreamName = configurationManager.Get<string>("RepositoryKinesisStream");
             _redisConn = ConnectionMultiplexer.Connect(configurationManager.AppSettings["RedisConnectionString"]);
             _context = dynamoClient.GetDatabase();
         }
@@ -94,22 +87,6 @@ namespace Rook.Framework.DynamoDb.Data
                     new LogItem("Type", typeof(T).ToString),
                     new LogItem("Entity", entityToStore.ToString),
                     new LogItem("DurationMilliseconds", timer.Elapsed.TotalMilliseconds));
-                
-                try
-                {
-                    _amazonFirehoseProducer.PutRecord(_amazonKinesisStreamName,
-                        FormatEntity(entityToStore, Helpers.OperationType.Insert));
-                }
-                catch (Exception ex)
-                {
-                    Logger.Error($"{nameof(DynamoStore)}.{nameof(Put)}",
-                        new LogItem("Event", "Failed to send update to data lake"),
-                        new LogItem("Type", typeof(T).ToString),
-                        new LogItem("Entity", entityToStore.ToString),
-                        new LogItem("Exception Message", ex.Message),
-                        new LogItem("Stack Trace", ex.StackTrace),
-                        new LogItem("DurationMilliseconds", timer.Elapsed.TotalMilliseconds));
-                }
             }
             catch (Exception ex)
             {
@@ -130,7 +107,6 @@ namespace Rook.Framework.DynamoDb.Data
         /// <typeparam name="T"></typeparam>
         /// <param name="entityToStore"></param>
         /// <param name="filter"></param>
-        /// <param name="collation"></param>
         public void Put<T>(T entityToStore, Expression<Func<T, bool>> filter) where T : DataEntity
         {
             var table = this.GetCachedTable<T>();
@@ -152,23 +128,6 @@ namespace Rook.Framework.DynamoDb.Data
                     new LogItem("Entity", entityToStore.ToString),
                     new LogItem("Filter", filter.Body.ToString),
                     new LogItem("DurationMilliseconds", timer.Elapsed.TotalMilliseconds));
-
-                try
-                {
-                    _amazonFirehoseProducer.PutRecord(_amazonKinesisStreamName,
-                        deleteResult.Count() != 0
-                            ? FormatEntity(entityToStore, Helpers.OperationType.Update)
-                            : FormatEntity(entityToStore, Helpers.OperationType.Insert));
-                }
-                catch (Exception ex)
-                {
-                    Logger.Error($"{nameof(DynamoStore)}.{nameof(Put)}",
-                        new LogItem("Event", "Failed to send update to data lake"),
-                        new LogItem("Type", typeof(T).ToString),
-                        new LogItem("Entity", entityToStore.ToString),
-                        new LogItem("Exception Message", ex.Message),
-                        new LogItem("Stack Trace", ex.StackTrace));
-                }
             }
             catch (Exception ex)
             {
@@ -261,21 +220,6 @@ namespace Rook.Framework.DynamoDb.Data
                     new LogItem("Type", typeof(T).ToString),
                     new LogItem("Entity", entityToStore.ToString),
                     new LogItem("DurationMilliseconds", timer.Elapsed.TotalMilliseconds));
-
-                try
-                {
-                    _amazonFirehoseProducer.PutRecord(_amazonKinesisStreamName, FormatEntity(entityToStore, Helpers.OperationType.Update));
-                }
-                catch (Exception ex)
-                {
-                    Logger.Error($"{nameof(DynamoStore)}.{nameof(Update)}",
-                        new LogItem("Event", "Failed to send update to data lake"),
-                        new LogItem("Type", typeof(T).ToString),
-                        new LogItem("Entity", entityToStore.ToString),
-                        new LogItem("Exception Message", ex.Message),
-                        new LogItem("Stack Trace", ex.StackTrace),
-                        new LogItem("DurationMilliseconds", timer.Elapsed.TotalMilliseconds));
-                }
             }
             catch (Exception ex)
             {
@@ -311,21 +255,6 @@ namespace Rook.Framework.DynamoDb.Data
                     new LogItem("Type", typeof(T).ToString),
                     new LogItem("Id", id.ToString),
                     new LogItem("DurationMilliseconds", timer.Elapsed.TotalMilliseconds));
-
-                try
-                {
-                    _amazonFirehoseProducer.PutRecord(_amazonKinesisStreamName, FormatEntity(entity, Helpers.OperationType.Remove));
-                }
-                catch (Exception ex)
-                {
-                    Logger.Error($"{nameof(DynamoStore)}.{nameof(Remove)}",
-                        new LogItem("Event", "Failed to send update to data lake"),
-                        new LogItem("Type", typeof(T).ToString),
-                        new LogItem("Entity", entity.ToString),
-                        new LogItem("Exception Message", ex.Message),
-                        new LogItem("Stack Trace", ex.StackTrace),
-                        new LogItem("DurationMilliseconds", timer.Elapsed.TotalMilliseconds));
-                }
             }
             catch (Exception ex)
             {

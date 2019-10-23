@@ -14,9 +14,22 @@ namespace Rook.Framework.DynamoDb.Data
         public DynamoClient(IConfigurationManager configurationManager)
         {
             _configurationManager = configurationManager;
-            _dynamoClient = new AmazonDynamoDBClient(
-                _configurationManager.Get<string>("AWSAccessKey"),
-                _configurationManager.Get<string>("AWSSecretKey"));
+            var serviceUrl = _configurationManager.Get<string>("ServiceURL");
+            if (serviceUrl != null)
+            {
+                AmazonDynamoDBConfig conf = new AmazonDynamoDBConfig();
+                conf.ServiceURL = serviceUrl;
+                _dynamoClient = new AmazonDynamoDBClient(
+                    _configurationManager.Get<string>("AWSAccessKey"),
+                    _configurationManager.Get<string>("AWSSecretKey"),conf);
+            }
+            else
+            {
+                _dynamoClient = new AmazonDynamoDBClient(
+                    _configurationManager.Get<string>("AWSAccessKey"),
+                    _configurationManager.Get<string>("AWSSecretKey"));
+            }
+            
             _context = new DataContext(_dynamoClient,String.Empty);
         }
         
