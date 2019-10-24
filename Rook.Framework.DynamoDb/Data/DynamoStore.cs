@@ -401,7 +401,7 @@ namespace Rook.Framework.DynamoDb.Data
                 throw;
             }
             
-            _context.GetTable<T>(typeof(T).Name, () => new RedisTableCache(_redisConn));
+            _context.GetTable<T>("Id", () => new RedisTableCache(_redisConn));
            var table = _context.GetTable<T>();
            TableCache.Add(typeof(T),table);
         }
