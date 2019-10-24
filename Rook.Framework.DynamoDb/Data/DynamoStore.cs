@@ -268,6 +268,7 @@ namespace Rook.Framework.DynamoDb.Data
                 throw;
             }
         }
+        
         /// <summary>
         /// Removes the given DataEntity in the corresponding Dynamo table
         /// </summary>
@@ -337,6 +338,7 @@ namespace Rook.Framework.DynamoDb.Data
                 new LogItem("Filter", filter.Body.ToString));
             return this.GetCachedTable<T>().Where(filter);
         }
+        
         /// <summary>
         /// Gets an IEnumerable collection of tables of a given type in the corresponding Dynamo database
         /// </summary>
@@ -363,6 +365,7 @@ namespace Rook.Framework.DynamoDb.Data
                 new LogItem("Filter", filter.Body.ToString));
             return Get(filter).ToList();
         }
+        
         /// <summary>
         /// Checks connection to Dynamo is active
         /// </summary>
@@ -376,7 +379,7 @@ namespace Rook.Framework.DynamoDb.Data
 
         private void GetOrCreateTable<T>() where T : DataEntity
         {
-            _context.CreateTableIfNotExists(new CreateTableArgs<T>("ObjectId", typeof(string), g => g.Id ));
+            _context.CreateTableIfNotExists(new CreateTableArgs<T>(typeof(T).Name, typeof(object), g => g.Id ));
             Stopwatch timer = Stopwatch.StartNew();
 
             try
