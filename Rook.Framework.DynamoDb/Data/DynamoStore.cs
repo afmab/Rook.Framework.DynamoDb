@@ -380,7 +380,7 @@ namespace Rook.Framework.DynamoDb.Data
 
         private void GetOrCreateTable<T>() where T : DataEntity
         {
-            _context.CreateTableIfNotExists(new CreateTableArgs<T>("Id", typeof(object), g => g.Id ));
+            _context.CreateTableIfNotExists(new CreateTableArgs<T>("HashKey", typeof(object), g => g.Id ));
             Stopwatch timer = Stopwatch.StartNew();
 
             try
