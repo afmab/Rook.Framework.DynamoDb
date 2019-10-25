@@ -10,13 +10,13 @@ namespace Rook.Framework.DynamoDb.Data
         protected DataEntity()
         {
             Id = Guid.NewGuid().ToString();
-            HashKey = "NotAGuid" + Guid.NewGuid().ToString().Replace('-','Z');
+            HashKey = Guid.NewGuid().ToString();
         }
 
         //[JsonConverter(typeof(GuidConverter))]
         public object Id { get; set; }
         
-        public string HashKey { get; set; }
+        public object HashKey { get; set; }
         
         [JsonIgnore]
         public DateTime ExpiresAt { get; set; } = DateTime.UtcNow.AddMonths(18);

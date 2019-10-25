@@ -5,6 +5,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using Amazon.DynamoDBv2.DocumentModel;
 using Linq2DynamoDb.DataContext;
 using Linq2DynamoDb.DataContext.Caching.Redis;
 using Newtonsoft.Json;
@@ -403,6 +404,8 @@ namespace Rook.Framework.DynamoDb.Data
             
             var table = _context.GetTable<T>(() => new RedisTableCache(_redisConn));
             TableCache.Add(typeof(T),table);
+            
+            Amazon.DynamoDBv2.DocumentModel.Primitive tmp = new Primitive();
         }
 
         private DataTable<T> GetCachedTable<T>() where T : DataEntity
