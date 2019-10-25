@@ -13,9 +13,10 @@ namespace Rook.Framework.DynamoDb.Data
             HashKey = Guid.NewGuid().ToString();
         }
 
-        //[JsonConverter(typeof(GuidConverter))]
+        [JsonConverter(typeof(PrimaiveConverter))]
         public object Id { get; set; }
         
+        [JsonConverter(typeof(PrimaiveConverter))]
         public object HashKey { get; set; }
         
         [JsonIgnore]
@@ -39,6 +40,25 @@ namespace Rook.Framework.DynamoDb.Data
         public override bool CanConvert(Type objectType)
         {
             return objectType == typeof(Guid);
+        }
+    }
+
+    
+    public class PrimaiveConverter : JsonConverter
+    {
+        public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
+        {
+            return serializer.Deserialize<Amazon.DynamoDBv2.DocumentModel.Primitive>(reader);
+        }
+
+        public override bool CanConvert(Type objectType)
+        {
+            throw new NotImplementedException();
         }
     }
 }
