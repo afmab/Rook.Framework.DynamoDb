@@ -13,7 +13,7 @@ namespace Rook.Framework.DynamoDb.Data
             HashKey = "NotAGuid" + Guid.NewGuid().ToString().Replace('-','Z');
         }
         
-        public object Id { get; set; }
+        public string Id { get; set; }
         
         public string HashKey { get; set; }
         
