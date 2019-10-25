@@ -9,11 +9,12 @@ namespace Rook.Framework.DynamoDb.Data
     {
         protected DataEntity()
         {
-            Id = "NotAGuid" + Guid.NewGuid().ToString().Replace('-','Z');
+            Id = Guid.NewGuid().ToString();
             HashKey = "NotAGuid" + Guid.NewGuid().ToString().Replace('-','Z');
         }
-        
-        public string Id { get; set; }
+
+        //[JsonConverter(typeof(GuidConverter))]
+        public object Id { get; set; }
         
         public string HashKey { get; set; }
         
