@@ -379,7 +379,7 @@ namespace Rook.Framework.DynamoDb.Data
 
         private void GetOrCreateTable<T>() where T : DataEntity
         {
-            _context.CreateTableIfNotExists(new CreateTableArgs<T>(typeof(T).Name, typeof(object), g => g.Id ));
+            _context.CreateTableIfNotExists(new CreateTableArgs<T>("Id", typeof(object), g => g.Id ));
             Stopwatch timer = Stopwatch.StartNew();
 
             try
@@ -401,9 +401,8 @@ namespace Rook.Framework.DynamoDb.Data
                 throw;
             }
             
-            _context.GetTable<T>("Id", () => new RedisTableCache(_redisConn));
-           var table = _context.GetTable<T>();
-           TableCache.Add(typeof(T),table);
+            var table = _context.GetTable<T>(() => new RedisTableCache(_redisConn));
+            TableCache.Add(typeof(T),table);
         }
 
         private DataTable<T> GetCachedTable<T>() where T : DataEntity
