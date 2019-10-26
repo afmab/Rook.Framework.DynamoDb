@@ -10,7 +10,7 @@ namespace Rook.Framework.DynamoDb.Data
         protected DataEntity()
         {
             Id = Guid.NewGuid();
-            HashKey = Guid.NewGuid().ToString();
+            HashKey = Guid.NewGuid();
         }
 
         [JsonConverter(typeof(GuidConverter))]
