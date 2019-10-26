@@ -53,9 +53,9 @@ namespace Rook.Framework.DynamoDb.Data
 
         private void SetupHealthCheck()
         {
-            var record = new HealthCheckEntity(){Id = Guid.NewGuid(),CreatedAt = DateTime.Now, ExpiresAt = DateTime.Now.AddYears(10)};
+            var record = new HealthCheckEntity(){Id = Guid.NewGuid(), HashKey = Guid.NewGuid(), CreatedAt = DateTime.Now, ExpiresAt = DateTime.Now.AddYears(10)};
             
-            _context.CreateTableIfNotExists(new CreateTableArgs<HealthCheckEntity>(typeof(HealthCheckEntity).Name, typeof(string), g => g.Id ));
+            _context.CreateTableIfNotExists(new CreateTableArgs<HealthCheckEntity>(g => g.HashKey, g => g.Id ));
             var table = _context.GetTable<HealthCheckEntity>();
             var entity = table.FirstOrDefault();
             if (entity == null)
