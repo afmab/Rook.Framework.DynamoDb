@@ -14,9 +14,9 @@ namespace Rook.Framework.DynamoDb.Data
         }
 
         [JsonConverter(typeof(GuidConverter))]
-        public object Id { get; set; }
+        public Guid Id { get; set; }
         
-        public object HashKey { get; set; }
+        public Guid HashKey { get; set; }
         
         [JsonIgnore]
         public DateTime ExpiresAt { get; set; } = DateTime.UtcNow.AddMonths(18);

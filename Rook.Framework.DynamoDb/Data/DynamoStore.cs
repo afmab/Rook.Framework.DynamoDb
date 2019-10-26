@@ -53,11 +53,11 @@ namespace Rook.Framework.DynamoDb.Data
 
         private void SetupHealthCheck()
         {
-            var record = new HealthCheckEntity(){Id = "1",CreatedAt = DateTime.Now, ExpiresAt = DateTime.Now.AddYears(10)};
+            var record = new HealthCheckEntity(){Id = Guid.NewGuid(),CreatedAt = DateTime.Now, ExpiresAt = DateTime.Now.AddYears(10)};
             
             _context.CreateTableIfNotExists(new CreateTableArgs<HealthCheckEntity>(typeof(HealthCheckEntity).Name, typeof(string), g => g.Id ));
             var table = _context.GetTable<HealthCheckEntity>();
-            var entity = table.FirstOrDefault(x => (string)x.Id == "1");
+            var entity = table.FirstOrDefault();
             if (entity == null)
             {
                 table.InsertOnSubmit(record);
@@ -315,7 +315,7 @@ namespace Rook.Framework.DynamoDb.Data
         {
             var table = this.GetCachedTable<T>();
             Stopwatch timer = Stopwatch.StartNew();
-            var entity = table.FirstOrDefault(x => x.Id == id);
+            var entity = table.FirstOrDefault(x => x.Id == (Guid)id);
 
             Logger.Trace($"{nameof(DynamoStore)}.{nameof(Get)}",
                 new LogItem("Event", "Get entity"),
@@ -374,14 +374,14 @@ namespace Rook.Framework.DynamoDb.Data
         public bool Ping()
         {
             var table = _context.GetTable<HealthCheckEntity>();
-            var record = table.FirstOrDefault(x => (string)x.Id == "1");
+            var record = table.FirstOrDefault();
             return record != null;
         }
 
         private void GetOrCreateTable<T>() where T : DataEntity
         {
             //_context.CreateTableIfNotExists(new CreateTableArgs<T>("HashKey", typeof(Guid), g => g.Id ));
-            _context.CreateTableIfNotExists(new CreateTableArgs<T>(g => g.HashKey, g => g.Id));
+            _context.CreateTableIfNotExists(new CreateTableArgs<T>(g => g.HashKey,g => g.Id));
             Stopwatch timer = Stopwatch.StartNew();
 
             try
