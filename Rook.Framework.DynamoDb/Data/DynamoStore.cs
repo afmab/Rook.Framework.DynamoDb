@@ -337,7 +337,7 @@ namespace Rook.Framework.DynamoDb.Data
                 new LogItem("Event", "Get entity"),
                 new LogItem("Type", typeof(T).ToString),
                 new LogItem("Filter", filter.Body.ToString));
-            return this.GetCachedTable<T>().Where(filter);
+            return this.GetCachedTable<T>().Where(filter).ToList();
         }
         
         /// <summary>
@@ -349,7 +349,7 @@ namespace Rook.Framework.DynamoDb.Data
             Logger.Trace($"{nameof(DynamoStore)}.{nameof(GetTable)}",
                 new LogItem("Event", "Get table"),
                 new LogItem("Type", typeof(T).ToString));
-            return this.GetCachedTable<T>();
+            return this.GetCachedTable<T>().ToList();
         }
 
         /// <summary>
