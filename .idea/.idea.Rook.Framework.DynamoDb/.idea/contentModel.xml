@@ -20,6 +20,9 @@
         <e p="Helpers" t="Include">
           <e p="OperationType.cs" t="Include" />
         </e>
+        <e p="PropertyConverters" t="Include">
+          <e p="TimeSpanConverter.cs" t="Include" />
+        </e>
         <e p="Rook.Framework.DynamoDb.csproj" t="IncludeRecursive" />
         <e p="StructureMap" t="Include">
           <e p="DynamoRegistry.cs" t="Include" />

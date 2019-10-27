@@ -2,7 +2,7 @@ using System;
 using Amazon.DynamoDBv2.DataModel;
 using Amazon.DynamoDBv2.DocumentModel;
 
-namespace Rook.Framework.DynamoDb.PropertyConverters
+namespace Rook.Framework.DynamoDb.Helpers
 {
     public class TimeSpanConverter : IPropertyConverter
     {
