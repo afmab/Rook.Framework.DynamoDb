@@ -9,13 +9,21 @@ namespace Rook.Framework.DynamoDb.Helpers
         public DynamoDBEntry ToEntry(object value)
         {
             TimeSpan time = (TimeSpan) value;
-            return new Primitive(time.Ticks.ToString());
+            var timeValues = new PrimitiveList(DynamoDBEntryType.Numeric);
+            timeValues.Add(time.Days);
+            timeValues.Add(time.Hours);
+            timeValues.Add(time.Minutes);
+            timeValues.Add(time.Seconds);
+            timeValues.Add(time.Milliseconds);
+            return timeValues;
         }
 
         public object FromEntry(DynamoDBEntry entry)
         {
-            string time = (string) entry;
-            return new TimeSpan(long.Parse(time));
+            var timeValues = entry.AsPrimitiveList();
+            return new TimeSpan(timeValues[0].AsInt(), timeValues[1].AsInt(), timeValues[2].AsInt(),
+                timeValues[3].AsInt(), timeValues[4].AsInt());
+
         }
     }
 }
