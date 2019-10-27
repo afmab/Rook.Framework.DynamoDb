@@ -1,11 +1,12 @@
 using System;
+using Linq2DynamoDb.DataContext;
 using Newtonsoft.Json;
 
 namespace Rook.Framework.DynamoDb.Data
 {
 
 
-    public abstract class DataEntity 
+    public abstract class DataEntity  : EntityBase
     {
         protected DataEntity()
         {
