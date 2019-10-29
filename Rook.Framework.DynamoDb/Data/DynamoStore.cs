@@ -408,6 +408,13 @@ namespace Rook.Framework.DynamoDb.Data
             Amazon.DynamoDBv2.DocumentModel.Primitive tmp = new Primitive();
         }
 
+        public void RefreshTableCache<T>()
+        {
+            TableCache.Remove(typeof(T));
+            var table = _context.GetTable<T>(() => new RedisTableCache(_redisConn));
+            TableCache.Add(typeof(T),table);
+        }
+
         private DataTable<T> GetCachedTable<T>() where T : DataEntity
         {
             lock (TableCache)
