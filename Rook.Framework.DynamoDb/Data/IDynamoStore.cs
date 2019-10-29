@@ -21,6 +21,7 @@ namespace Rook.Framework.DynamoDb.Data
         long Count<T>() where T : DataEntity;
         long Count<T>(Expression<Func<T, bool>> expression) where T : DataEntity;
         IEnumerable<T> GetTable<T>() where T : DataEntity;
+        void RefreshTableCache<T>() where T : DataEntity;
 
 
     }

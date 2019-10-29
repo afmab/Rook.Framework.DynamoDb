@@ -408,7 +408,7 @@ namespace Rook.Framework.DynamoDb.Data
             Amazon.DynamoDBv2.DocumentModel.Primitive tmp = new Primitive();
         }
 
-        public void RefreshTableCache<T>()
+        public void RefreshTableCache<T>() where T : DataEntity
         {
             TableCache.Remove(typeof(T));
             var table = _context.GetTable<T>(() => new RedisTableCache(_redisConn));
