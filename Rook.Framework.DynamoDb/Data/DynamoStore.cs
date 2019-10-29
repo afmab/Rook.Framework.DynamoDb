@@ -25,7 +25,7 @@ namespace Rook.Framework.DynamoDb.Data
         private static  ConnectionMultiplexer _redisConn;
         internal static Dictionary<Type, object> TableCache { get; } = new Dictionary<Type, object>();
         public StartupPriority StartupPriority { get; } = StartupPriority.Highest;
-        
+
 
         public DynamoStore(
             ILogger logger,
@@ -402,7 +402,7 @@ namespace Rook.Framework.DynamoDb.Data
                 throw;
             }
             
-            var table = _context.GetTable<T>(() => new RedisTableCache(_redisConn));
+            var table = _context.GetTable<T>();
             TableCache.Add(typeof(T),table);
             
             Amazon.DynamoDBv2.DocumentModel.Primitive tmp = new Primitive();
@@ -411,7 +411,7 @@ namespace Rook.Framework.DynamoDb.Data
         public void RefreshTableCache<T>() where T : DataEntity
         {
             TableCache.Remove(typeof(T));
-            var table = _context.GetTable<T>(() => new RedisTableCache(_redisConn));
+            var table = _context.GetTable<T>();
             TableCache.Add(typeof(T),table);
         }
 
