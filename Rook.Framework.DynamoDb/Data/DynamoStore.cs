@@ -243,7 +243,7 @@ namespace Rook.Framework.DynamoDb.Data
         public void Remove<T>(object id) where T : DataEntity
         {
             var table = this.GetCachedTable<T>();
-            var entity = table.Find(id);
+            var entity = table.FirstOrDefault(x => x.Id == (Guid)id);
             table.RemoveOnSubmit(entity);
 
             Stopwatch timer = Stopwatch.StartNew();
