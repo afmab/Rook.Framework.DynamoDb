@@ -313,7 +313,7 @@ namespace Rook.Framework.DynamoDb.Data
         /// <returns></returns>
         public T Get<T>(object id) where T : DataEntity
         {
-            var table = this.GetCachedTable<T>();
+            var table = this.GetCachedTable<T>().ToList();
             Stopwatch timer = Stopwatch.StartNew();
             var entity = table.FirstOrDefault(x => x.Id == (Guid)id);
 
