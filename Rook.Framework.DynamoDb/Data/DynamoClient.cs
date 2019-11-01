@@ -14,7 +14,7 @@ namespace Rook.Framework.DynamoDb.Data
         public DynamoClient(IConfigurationManager configurationManager)
         {
             _configurationManager = configurationManager;
-            var serviceUrl = _configurationManager.Get<string>("ServiceURL");
+            var serviceUrl = _configurationManager.Get<string>("AWSServiceURL");
             if (serviceUrl != null)
             {
                 AmazonDynamoDBConfig conf = new AmazonDynamoDBConfig();
