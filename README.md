@@ -1,5 +1,5 @@
  Rook.Framework.DynamoDb
-Common Rook microservice functionality
+DynamoDb for Rook microservices
 
 [![Build status](https://travis-ci.org/rookframework/Rook.Framework.DynamoDb.svg?branch=master)](https://travis-ci.org/rookframework/Rook.Framework.DynamoDb)
 [![nuget](https://img.shields.io/nuget/v/Rook.Framework.DynamoDb.svg)](https://www.nuget.org/packages/Rook.Framework.DynamoDb/)
@@ -18,4 +18,4 @@ Pull requests welcome
 https://github.com/orgs/rookframework/teams/rook-contributors
 
 ## License
-https://github.com/rookframework/Rook.Framework.DynamoDb/blob/master/LICENSE
+https://github.com/rookframework/Rook.Framework.DynamoDb/blob/master/LICENSE.txt
