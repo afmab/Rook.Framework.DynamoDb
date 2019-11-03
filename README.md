@@ -1,4 +1,4 @@
- Rook.Framework.DynamoDb
+# Rook.Framework.DynamoDb
 DynamoDb for Rook microservices
 
 [![Build status](https://travis-ci.org/rookframework/Rook.Framework.DynamoDb.svg?branch=master)](https://travis-ci.org/rookframework/Rook.Framework.DynamoDb)
@@ -6,10 +6,11 @@ DynamoDb for Rook microservices
 
 
 ## Installation
-PM> Install-Package Rook.Framework.DynamoDb
+
+`PM> Install-Package Rook.Framework.DynamoDb`
 
 ## Usage
-https://github.com/rookframework/Rook.Documentation/wiki/Rook-Microservice-Project
+https://github.com/rookframework/Rook.Documentation/wiki/
 
 ## Contributing
 Pull requests welcome
