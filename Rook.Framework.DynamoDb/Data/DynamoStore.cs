@@ -5,11 +5,15 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using Amazon.DynamoDBv2.DocumentModel;
 using Linq2DynamoDb.DataContext;
 using Linq2DynamoDb.DataContext.Caching.Redis;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Serialization;
+using Rook.Framework.Core.AmazonKinesisFirehose;
 using Rook.Framework.Core.Common;
+using Rook.Framework.Core.LambdaDataPump;
 using Rook.Framework.Core.Services;
 using Rook.Framework.Core.StructureMap;
 using StackExchange.Redis;
@@ -17,14 +21,18 @@ using OperationType = Amazon.DynamoDBv2.OperationType;
 
 namespace Rook.Framework.DynamoDb.Data
 {
-    public sealed class DynamoStore :   IStartable, IDynamoStore
+    public sealed class DynamoStore : IStartable, IDynamoStore
     {
         private readonly DataContext _context;
         private readonly IContainerFacade _containerFacade;
         internal readonly ILogger Logger;
-        private static  ConnectionMultiplexer _redisConn;
+        private static ConnectionMultiplexer _redisConn;
         internal static Dictionary<Type, object> TableCache { get; } = new Dictionary<Type, object>();
         public StartupPriority StartupPriority { get; } = StartupPriority.Highest;
+        private readonly IAmazonFirehoseProducer _amazonFirehoseProducer;
+        private readonly string _amazonKinesisStreamName;
+        private readonly ILambdaDataPump _lambdaDataPump;
+        private readonly string _dataPumpLambdaName;
 
 
         public DynamoStore(
@@ -32,30 +40,54 @@ namespace Rook.Framework.DynamoDb.Data
             IConfigurationManager configurationManager,
             IContainerFacade containerFacade,
             IDynamoClient dynamoClient
-         ) 
+        )
         {
             _containerFacade = containerFacade;
             Logger = logger;
             _redisConn = ConnectionMultiplexer.Connect(configurationManager.AppSettings["RedisConnectionString"]);
             _context = dynamoClient.GetDatabase();
+
+            try
+            {
+                _amazonKinesisStreamName = configurationManager.Get<string>("RepositoryKinesisStream");
+            }
+            catch
+            {
+                _amazonKinesisStreamName = null;
+            }
+
+            try
+            {
+                _dataPumpLambdaName = configurationManager.Get<string>("DataPumpLambdaName");
+            }
+            catch
+            {
+                _dataPumpLambdaName = null;
+            }
         }
-        
+
         public void Start()
         {
             var dataEntities = _containerFacade.GetAllInstances<DataEntity>();
             foreach (var dataEntity in dataEntities)
             {
-                var method = typeof(DynamoStore).GetMethod(nameof(GetOrCreateTable), BindingFlags.NonPublic | BindingFlags.Instance);
+                var method = typeof(DynamoStore).GetMethod(nameof(GetOrCreateTable),
+                    BindingFlags.NonPublic | BindingFlags.Instance);
                 if (method != null) method.MakeGenericMethod(dataEntity.GetType()).Invoke(this, new object[] { });
             }
+
             SetupHealthCheck();
         }
 
         private void SetupHealthCheck()
         {
-            var record = new HealthCheckEntity(){Id = Guid.NewGuid(), HashKey =  Guid.NewGuid(), CreatedAt = DateTime.Now, ExpiresAt = DateTime.Now.AddYears(10)};
-            
-            _context.CreateTableIfNotExists(new CreateTableArgs<HealthCheckEntity>( g=> g.HashKey,g => g.Id ));
+            var record = new HealthCheckEntity()
+            {
+                Id = Guid.NewGuid(), HashKey = Guid.NewGuid(), CreatedAt = DateTime.Now,
+                ExpiresAt = DateTime.Now.AddYears(10)
+            };
+
+            _context.CreateTableIfNotExists(new CreateTableArgs<HealthCheckEntity>(g => g.HashKey, g => g.Id));
             var table = _context.GetTable<HealthCheckEntity>();
             var entity = table.FirstOrDefault();
             if (entity == null)
@@ -63,6 +95,7 @@ namespace Rook.Framework.DynamoDb.Data
                 table.InsertOnSubmit(record);
                 _context.SubmitChanges();
             }
+
             Logger.Trace($"{nameof(DynamoStore)}.{nameof(SetupHealthCheck)}",
                 new LogItem("Event", "Insert health check entity"),
                 new LogItem("Type", typeof(HealthCheckEntity).ToString),
@@ -79,10 +112,21 @@ namespace Rook.Framework.DynamoDb.Data
             var table = GetCachedTable<T>();
             table.InsertOnSubmit(entityToStore);
             Stopwatch timer = Stopwatch.StartNew();
-    
+
             try
             {
                 _context.SubmitChanges();
+
+                if (!string.IsNullOrEmpty(_amazonKinesisStreamName))
+                    _amazonFirehoseProducer.PutRecord(_amazonKinesisStreamName,
+                        FormatEntity(entityToStore, Helpers.OperationType.Insert));
+
+                if (!string.IsNullOrEmpty(_dataPumpLambdaName))
+                    Task.Run(() =>
+                            _lambdaDataPump.InvokeLambdaAsync(FormatEntity(entityToStore,
+                                Helpers.OperationType.Insert)))
+                        .ConfigureAwait(false);
+
                 Logger.Trace($"{nameof(DynamoStore)}.{nameof(Put)}",
                     new LogItem("Event", "Insert entity"),
                     new LogItem("Type", typeof(T).ToString),
@@ -112,17 +156,28 @@ namespace Rook.Framework.DynamoDb.Data
         {
             var table = this.GetCachedTable<T>();
             var deleteResult = table.AsQueryable().Where(filter);
-            
+
             foreach (var dataEntity in deleteResult)
             {
                 table.RemoveOnSubmit(dataEntity);
             }
+
             table.InsertOnSubmit(entityToStore);
 
             Stopwatch timer = Stopwatch.StartNew();
             try
             {
                 _context.SubmitChanges();
+
+                if (!string.IsNullOrEmpty(_amazonKinesisStreamName))
+                    _amazonFirehoseProducer.PutRecord(_amazonKinesisStreamName,
+                        deleteResult.Count() != 0
+                            ? FormatEntity(entityToStore, Helpers.OperationType.Update)
+                            : FormatEntity(entityToStore, Helpers.OperationType.Insert));
+
+                if (!string.IsNullOrEmpty(_dataPumpLambdaName))
+                    Task.Run(() => _lambdaDataPump.InvokeLambdaAsync(FormatEntity(entityToStore,
+                        deleteResult.Count() != 0 ? Helpers.OperationType.Update : Helpers.OperationType.Insert)));
                 Logger.Trace($"{nameof(DynamoStore)}.{nameof(Put)}",
                     new LogItem("Event", "Insert entity"),
                     new LogItem("Type", typeof(T).ToString),
@@ -155,7 +210,7 @@ namespace Rook.Framework.DynamoDb.Data
                 new LogItem("Event", "Get table as queryable"), new LogItem("Type", typeof(T).ToString));
             return GetCachedTable<T>().AsQueryable();
         }
-        
+
         /// <summary>
         /// Removes all items matching the filter in the corresponding Dynamo table
         /// </summary>
@@ -165,10 +220,11 @@ namespace Rook.Framework.DynamoDb.Data
         {
             var table = this.GetCachedTable<T>();
             var deleteResult = table.AsQueryable().Where(filter);
-            
+
             foreach (var dataEntity in deleteResult)
             {
                 table.RemoveOnSubmit(dataEntity);
+
                 Logger.Trace($"{nameof(DynamoStore)}.{nameof(Remove)}",
                     new LogItem("Event", "Remove entity"),
                     new LogItem("Type", typeof(T).ToString),
@@ -198,7 +254,7 @@ namespace Rook.Framework.DynamoDb.Data
                 throw;
             }
         }
-        
+
         /// <summary>
         /// Updates the given DataEntity in the corresponding Dynamo table 
         /// </summary>
@@ -215,6 +271,15 @@ namespace Rook.Framework.DynamoDb.Data
             try
             {
                 _context.SubmitChanges();
+
+
+                if (!string.IsNullOrEmpty(_amazonKinesisStreamName))
+                    _amazonFirehoseProducer.PutRecord(_amazonKinesisStreamName,
+                        FormatEntity(entityToStore, Helpers.OperationType.Update));
+
+                if (!string.IsNullOrEmpty(_dataPumpLambdaName))
+                    Task.Run(() =>
+                        _lambdaDataPump.InvokeLambdaAsync(FormatEntity(entityToStore, Helpers.OperationType.Update)));
 
                 Logger.Trace($"{nameof(DynamoStore)}.{nameof(Update)}",
                     new LogItem("Event", "Update entity"),
@@ -234,7 +299,7 @@ namespace Rook.Framework.DynamoDb.Data
                 throw;
             }
         }
-        
+
         /// <summary>
         /// Removes DataEntity with the given Id from the corresponding Dynamo table 
         /// </summary>
@@ -243,7 +308,7 @@ namespace Rook.Framework.DynamoDb.Data
         public void Remove<T>(object id) where T : DataEntity
         {
             var table = this.GetCachedTable<T>();
-            var entity = table.FirstOrDefault(x => x.Id == (Guid)id);
+            var entity = table.FirstOrDefault(x => x.Id == (Guid) id);
             table.RemoveOnSubmit(entity);
 
             Stopwatch timer = Stopwatch.StartNew();
@@ -269,7 +334,7 @@ namespace Rook.Framework.DynamoDb.Data
                 throw;
             }
         }
-        
+
         /// <summary>
         /// Removes the given DataEntity in the corresponding Dynamo table
         /// </summary>
@@ -304,7 +369,7 @@ namespace Rook.Framework.DynamoDb.Data
                 new LogItem("Expression", expression.ToString));
             return GetCachedTable<T>().Count(expression);
         }
-        
+
         /// <summary>
         /// Gets the requested item of requested type from Dynamo table
         /// </summary>
@@ -315,14 +380,14 @@ namespace Rook.Framework.DynamoDb.Data
         {
             var table = this.GetCachedTable<T>().ToList();
             Stopwatch timer = Stopwatch.StartNew();
-            var entity = table.FirstOrDefault(x => x.Id == (Guid)id);
+            var entity = table.FirstOrDefault(x => x.Id == (Guid) id);
 
             Logger.Trace($"{nameof(DynamoStore)}.{nameof(Get)}",
                 new LogItem("Event", "Get entity"),
                 new LogItem("Type", typeof(T).ToString),
                 new LogItem("Id", id.ToString),
                 new LogItem("DurationMilliseconds", timer.Elapsed.TotalMilliseconds));
-            
+
             return entity;
         }
 
@@ -339,7 +404,7 @@ namespace Rook.Framework.DynamoDb.Data
                 new LogItem("Filter", filter.Body.ToString));
             return this.GetCachedTable<T>().Where(filter).ToList();
         }
-        
+
         /// <summary>
         /// Gets an IEnumerable collection of tables of a given type in the corresponding Dynamo database
         /// </summary>
@@ -366,7 +431,7 @@ namespace Rook.Framework.DynamoDb.Data
                 new LogItem("Filter", filter.Body.ToString));
             return Get(filter).ToList();
         }
-        
+
         /// <summary>
         /// Checks connection to Dynamo is active
         /// </summary>
@@ -380,7 +445,7 @@ namespace Rook.Framework.DynamoDb.Data
 
         private void GetOrCreateTable<T>() where T : DataEntity
         {
-            _context.CreateTableIfNotExists(new CreateTableArgs<T>(g => g.HashKey,g => g.Id));
+            _context.CreateTableIfNotExists(new CreateTableArgs<T>(g => g.HashKey, g => g.Id));
             Stopwatch timer = Stopwatch.StartNew();
 
             try
@@ -401,10 +466,10 @@ namespace Rook.Framework.DynamoDb.Data
                     new LogItem("DurationMilliseconds", timer.Elapsed.TotalMilliseconds));
                 throw;
             }
-            
+
             var table = _context.GetTable<T>();
-            TableCache.Add(typeof(T),table);
-            
+            TableCache.Add(typeof(T), table);
+
             Amazon.DynamoDBv2.DocumentModel.Primitive tmp = new Primitive();
         }
 
@@ -412,7 +477,7 @@ namespace Rook.Framework.DynamoDb.Data
         {
             TableCache.Remove(typeof(T));
             var table = _context.GetTable<T>();
-            TableCache.Add(typeof(T),table);
+            TableCache.Add(typeof(T), table);
         }
 
         private DataTable<T> GetCachedTable<T>() where T : DataEntity
@@ -426,24 +491,24 @@ namespace Rook.Framework.DynamoDb.Data
                     GetOrCreateTable<T>();
                 }
 
-                return (DataTable<T>)TableCache[typeof(T)];
+                return (DataTable<T>) TableCache[typeof(T)];
             }
         }
-        
+
         private static string FormatEntity<T>(T entity, Helpers.OperationType type)
         {
             var regex = new Regex("ISODate[(](.+?)[)]");
 
-            var result = new
+            var result = JsonConvert.SerializeObject(new
             {
                 Service = ServiceInfo.Name,
                 OperationType = Enum.GetName(typeof(OperationType), type),
-                Entity = JsonConvert.SerializeObject(entity),
+                Entity = entity,
                 EntityType = typeof(T).Name,
                 Date = DateTime.UtcNow
-            };
+            }, new JsonSerializerSettings() { ContractResolver = new CamelCasePropertyNamesContractResolver()});
 
-            return regex.Replace(JsonConvert.SerializeObject(result),"$1");
+            return regex.Replace(JsonConvert.SerializeObject(result), "$1");
         }
     }
 }
