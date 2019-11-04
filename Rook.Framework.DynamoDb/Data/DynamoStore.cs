@@ -271,8 +271,7 @@ namespace Rook.Framework.DynamoDb.Data
             try
             {
                 _context.SubmitChanges();
-
-
+                
                 if (!string.IsNullOrEmpty(_amazonKinesisStreamName))
                     _amazonFirehoseProducer.PutRecord(_amazonKinesisStreamName,
                         FormatEntity(entityToStore, Helpers.OperationType.Update));
