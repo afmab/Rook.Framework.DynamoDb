@@ -11,14 +11,17 @@ namespace Rook.Framework.DynamoDb.Data
         private static IAmazonDynamoDB _dynamoClient;
         private IConfigurationManager _configurationManager;
         private static DataContext _context;
+        internal readonly ILogger Logger;
 
-        public DynamoClient(IConfigurationManager configurationManager)
+        public DynamoClient(IConfigurationManager configurationManager,ILogger logger)
         {
+            Logger = logger;
             _configurationManager = configurationManager;
             var serviceUrl = _configurationManager.Get<string>("AWSServiceURL");
             AmazonDynamoDBConfig conf = new AmazonDynamoDBConfig();
             if (serviceUrl != "")
             {
+                Logger.Info("Local");
                 conf.ServiceURL = serviceUrl;
                 _dynamoClient = new AmazonDynamoDBClient(
                     _configurationManager.Get<string>("AWSAccessKey"),
@@ -26,6 +29,7 @@ namespace Rook.Framework.DynamoDb.Data
             }
             else
             {
+                Logger.Info("remote");
                 conf.RegionEndpoint = RegionEndpoint.EUWest1;
                 _dynamoClient = new AmazonDynamoDBClient(
                     _configurationManager.Get<string>("AWSAccessKey"),
