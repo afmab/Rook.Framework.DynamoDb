@@ -44,7 +44,7 @@ namespace Rook.Framework.DynamoDb.Data
         {
             _containerFacade = containerFacade;
             Logger = logger;
-            _redisConn = ConnectionMultiplexer.Connect(configurationManager.AppSettings["RedisConnectionString"]);
+            //_redisConn = ConnectionMultiplexer.Connect(configurationManager.AppSettings["RedisConnectionString"]);
             _context = dynamoClient.GetDatabase();
 
             try
