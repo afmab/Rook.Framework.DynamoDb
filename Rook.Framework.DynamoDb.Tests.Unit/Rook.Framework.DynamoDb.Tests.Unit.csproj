@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>netcoreapp2.2</TargetFramework>
+
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="nunit" Version="3.11.0" />
+        <PackageReference Include="NUnit3TestAdapter" Version="3.11.0" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="15.9.0" />
+        <PackageReference Include="Rook.Framework.Core" Version="2019.11.1.74" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Rook.Framework.DynamoDb\Rook.Framework.DynamoDb.csproj" />
+    </ItemGroup>
+
+</Project>
