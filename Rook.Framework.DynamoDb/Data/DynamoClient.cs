@@ -36,8 +36,12 @@ namespace Rook.Framework.DynamoDb.Data
                     _configurationManager.Get<string>("AWSAccessKey"),
                     _configurationManager.Get<string>("AWSSecretKey"),conf);
             }
+
+            var environment = configurationManager.Get<string>("ENVIRONMENT");
+            if (string.IsNullOrEmpty(environment))
+                environment = "dev";
             
-            _context = new DataContext(_dynamoClient,String.Empty);
+            _context = new DataContext(_dynamoClient,environment);
         }
         
         public void Create(string connectionString = null)
