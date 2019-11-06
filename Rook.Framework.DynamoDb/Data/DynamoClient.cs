@@ -23,6 +23,7 @@ namespace Rook.Framework.DynamoDb.Data
             {
                 Logger.Info("Local");
                 conf.ServiceURL = serviceUrl;
+                
                 _dynamoClient = new AmazonDynamoDBClient(
                     _configurationManager.Get<string>("AWSAccessKey"),
                     _configurationManager.Get<string>("AWSSecretKey"),conf);

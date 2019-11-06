@@ -47,6 +47,7 @@ namespace Rook.Framework.DynamoDb.Data
             //_redisConn = ConnectionMultiplexer.Connect(configurationManager.AppSettings["RedisConnectionString"]);
             _context = dynamoClient.GetDatabase();
 
+            
             try
             {
                 _amazonKinesisStreamName = configurationManager.Get<string>("RepositoryKinesisStream");
