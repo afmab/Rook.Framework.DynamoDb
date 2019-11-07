@@ -469,8 +469,12 @@ namespace Rook.Framework.DynamoDb.Data
 
             var table = _context.GetTable<T>();
             TableCache.Add(typeof(T), table);
+        }
 
-            Amazon.DynamoDBv2.DocumentModel.Primitive tmp = new Primitive();
+        public void DropTable<T>()
+        {
+            _context.DeleteTable<T>();
+            _context.SubmitChanges();
         }
 
         public void RefreshTableCache<T>() where T : DataEntity
