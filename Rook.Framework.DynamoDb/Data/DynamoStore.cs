@@ -471,7 +471,7 @@ namespace Rook.Framework.DynamoDb.Data
             TableCache.Add(typeof(T), table);
         }
 
-        public void DropTable<T>()
+        public void DropTable<T>() where T : DataEntity
         {
             _context.DeleteTable<T>();
             _context.SubmitChanges();
