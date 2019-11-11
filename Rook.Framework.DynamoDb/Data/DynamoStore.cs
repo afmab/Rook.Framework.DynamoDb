@@ -506,7 +506,7 @@ namespace Rook.Framework.DynamoDb.Data
             var result = JsonConvert.SerializeObject(new
             {
                 Service = ServiceInfo.Name,
-                OperationType = Enum.GetName(typeof(OperationType), type),
+                OperationType = Enum.GetName(typeof(Helpers.OperationType), type),
                 Entity = entity,
                 EntityType = typeof(T).Name,
                 Date = DateTime.UtcNow
