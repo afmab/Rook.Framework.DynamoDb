@@ -65,6 +65,12 @@ namespace Rook.Framework.DynamoDb.Data
             {
                 _dataPumpLambdaName = null;
             }
+            
+            if (!string.IsNullOrEmpty(_amazonKinesisStreamName))
+                _amazonFirehoseProducer = new AmazonFirehoseProducer(logger, configurationManager);
+
+            if (!string.IsNullOrEmpty(_dataPumpLambdaName))
+                _lambdaDataPump = new LambdaDataPump(logger, _dataPumpLambdaName);
         }
 
         public void Start()
