@@ -384,17 +384,34 @@ namespace Rook.Framework.DynamoDb.Data
         /// <returns></returns>
         public T Get<T>(object id) where T : DataEntity
         {
-            var table = this.GetCachedTable<T>().ToList();
             Stopwatch timer = Stopwatch.StartNew();
-            var entity = table.FirstOrDefault(x => x.Id == (Guid) id);
+            var entity = new object();
+            try
+            {
+                var table = this.GetCachedTable<T>().ToList();
+                entity = table.FirstOrDefault(x => x.Id == (Guid) id);
+            }
+            catch (InvalidOperationException ex)
+            {
+                Logger.Error($"{nameof(DynamoStore)}.{nameof(Get)}",
+                    new LogItem("Failed to get table. Has it been manually edited?", "Get table"),
+                    new LogItem("Type", typeof(T).ToString),
+                    new LogItem("Exception Message", ex.Message),
+                    new LogItem("Stack Trace", ex.StackTrace));
+                
+                RefreshTableCache<T>();
+                var table = this.GetCachedTable<T>().ToList();
+                entity = table.FirstOrDefault(x => x.Id == (Guid) id);
 
+            }
+            
             Logger.Trace($"{nameof(DynamoStore)}.{nameof(Get)}",
                 new LogItem("Event", "Get entity"),
                 new LogItem("Type", typeof(T).ToString),
                 new LogItem("Id", id.ToString),
                 new LogItem("DurationMilliseconds", timer.Elapsed.TotalMilliseconds));
 
-            return entity;
+            return (T) entity;
         }
 
         /// <summary>
@@ -408,7 +425,25 @@ namespace Rook.Framework.DynamoDb.Data
                 new LogItem("Event", "Get entity"),
                 new LogItem("Type", typeof(T).ToString),
                 new LogItem("Filter", filter.Body.ToString));
-            return this.GetCachedTable<T>().Where(filter).ToList();
+
+            var entities = new List<T>();
+            try
+            {
+                entities = this.GetCachedTable<T>().Where(filter).ToList();
+            }
+            catch (InvalidOperationException ex)
+            {
+                Logger.Error($"{nameof(DynamoStore)}.{nameof(Get)}",
+                    new LogItem("Failed to get table. Has it been manually edited?", "Get table"),
+                    new LogItem("Type", typeof(T).ToString),
+                    new LogItem("Exception Message", ex.Message),
+                    new LogItem("Stack Trace", ex.StackTrace));
+                
+                RefreshTableCache<T>();
+                entities = this.GetCachedTable<T>().Where(filter).ToList();
+            }
+
+            return entities;
         }
 
         /// <summary>
@@ -420,7 +455,24 @@ namespace Rook.Framework.DynamoDb.Data
             Logger.Trace($"{nameof(DynamoStore)}.{nameof(GetTable)}",
                 new LogItem("Event", "Get table"),
                 new LogItem("Type", typeof(T).ToString));
-            return this.GetCachedTable<T>().ToList();
+            var table = new List<T>();
+            
+            try
+            {
+                table = GetCachedTable<T>().ToList();
+            }
+            catch (InvalidOperationException ex)
+            {
+                Logger.Error($"{nameof(DynamoStore)}.{nameof(GetTable)}",
+                    new LogItem("Failed to get table. Has it been manually edited?", "Get table"),
+                    new LogItem("Type", typeof(T).ToString),
+                    new LogItem("Exception Message", ex.Message),
+                    new LogItem("Stack Trace", ex.StackTrace));
+                RefreshTableCache<T>();
+                table = GetCachedTable<T>().ToList();
+
+            }
+            return table;
         }
 
         /// <summary>
