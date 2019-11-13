@@ -31,10 +31,7 @@ namespace Rook.Framework.DynamoDb.Data
             else
             {
                 Logger.Info("remote");
-                conf.RegionEndpoint = RegionEndpoint.EUWest1;
-                _dynamoClient = new AmazonDynamoDBClient(
-                    _configurationManager.Get<string>("AWSAccessKey"),
-                    _configurationManager.Get<string>("AWSSecretKey"),conf);
+                _dynamoClient = new AmazonDynamoDBClient();
             }
 
             var environment = configurationManager.Get<string>("ENVIRONMENT");
